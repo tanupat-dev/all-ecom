@@ -9,7 +9,7 @@ A greenfield build order designed to go **1 → N forward without ever looping b
 3. **Later phases only ADD** — a new slice (POS, marketplace, accounting…) extends the kernel by *adding* a new entity/field/consumer, never by *changing* the core.
 4. **The only condition that allows going back to fix an earlier phase**: it genuinely conflicts with an industry standard, or the owner deliberately changes a decision. Nothing else.
 
-Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0015`.
+Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0016`.
 
 ---
 

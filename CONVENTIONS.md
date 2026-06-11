@@ -2,7 +2,7 @@
 
 **Read this file before writing any code, every time.** Goal: one convention across the whole project, the same structure in every feature — never invent a new pattern. To deviate from this, the reason must be written in an ADR.
 
-Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0015) · **`docs/ROADMAP.md`** (build order).
+Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0016) · **`docs/ROADMAP.md`** (build order).
 
 ---
 

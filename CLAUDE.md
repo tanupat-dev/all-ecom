@@ -6,7 +6,7 @@ across marketplaces (Shopee/Lazada/TikTok via **Excel import/export — no API**
 ## Read first (sources of truth — point here, don't restate)
 - **`CONVENTIONS.md`** — structure / patterns / quality gates. **Read before writing any code.**
 - **`CONTEXT.md`** — domain glossary (Tenant, Variant, Stock Movement, Shift, …). All terms come from here.
-- **`docs/adr/0001–0015`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
+- **`docs/adr/0001–0016`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
 - **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently at **Phase 0 — no code yet**.
 
 ## Stack (locked — changing it requires an ADR)
