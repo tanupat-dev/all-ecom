@@ -9,7 +9,7 @@
 3. **เฟสหลังมีแต่ ADD** — slice ใหม่ (POS, marketplace, accounting…) ต่อยอด kernel ด้วยการ *เพิ่ม* entity/field/consumer ใหม่ ไม่ *แก้* core.
 4. **เงื่อนไขเดียวที่อนุญาตให้ย้อนกลับไปแก้เฟสก่อน**: เจอว่าขัด industry standard จริง หรือเจ้าของเปลี่ยนการตัดสินใจโดยตั้งใจ. นอกนั้นห้าม.
 
-อ้างอิงโมเดล: `CONTEXT.md` (glossary) + `docs/adr/0001–0010`.
+อ้างอิงโมเดล: `CONTEXT.md` (glossary) + `docs/adr/0001–0015`.
 
 ---
 
