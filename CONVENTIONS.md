@@ -66,7 +66,8 @@
 
 ## Skills (ใช้ตามจังหวะงาน)
 
-- **เริ่ม/จบ session, "เหลืออะไร/รอบหน้าทำไร" → `all-ecom-handoff`** (อ่าน/อัปเดต `STATUS.md` = live checklist + handoff)
+- **backlog/checklist "เหลืออะไร" = GitHub Issues** + triage labels → `all-ecom-triage` (`ready-for-agent`=AFK / `ready-for-human`=HITL). แตก plan → issues ด้วย `all-ecom-to-issues`
+- **จบ session / "handoff" / "รอบหน้าทำไร" → `all-ecom-handoff`** (เอกสาร ephemeral ลง OS temp, อ้าง artifact + issue# + commit, ไม่ commit เข้า repo)
 - ก่อนเขียนงานไม่ trivial → `all-ecom-engineering-process` (plan-first + vertical slice + AFK/HITL)
 - เขียนแต่ละ slice → `all-ecom-tdd` (red→green→refactor, behaviour ผ่าน public interface)
 - ก่อน lock design ที่ rollback แพง (money/stock/ordering) → `all-ecom-standard-first`
