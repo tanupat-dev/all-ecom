@@ -20,7 +20,7 @@ Laravel boots the app in-process.
    (a Stock Movement appended + the denormalized balance updated in the same transaction), Policy/
    Permission gates (a Cashier role is 403 on `accounting.view`), fail-loud import behaviour, and
    **cross-tenant isolation** (a User of Tenant A can never read Tenant B's rows — this suite is a MUST).
-   Run via `php artisan test` (cross-platform; on native Windows use this, or `vendor\bin\pest`).
+   Run via `php artisan test` or `./vendor/bin/pest` (dev runs in WSL2 Ubuntu — native Linux).
 
 3. **Livewire component (`Livewire::test()`)** — reactive components **without a browser**: mount
    asserts (a "smoke test" that the POS checkout / a Filament page renders), `->set()` / `->call()`

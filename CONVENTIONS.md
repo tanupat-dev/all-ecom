@@ -9,6 +9,7 @@
 ## Stack (locked)
 
 - **Laravel 11** + **Filament** (back-office) + **Livewire + Alpine** (POS reactive) + **PostgreSQL**.
+- **Dev runtime = WSL2 Ubuntu native** (project at `~/projects/all-ecom`, edited via VS Code Remote-WSL) — chosen over Herd (Windows-native, parity drift) and Sail/Docker (RAM-heavy) for true Linux parity at low RAM. **CI = GitHub Actions `ubuntu-latest`** (the parity net). Run Claude Code dev sessions from the WSL path so tools are native Linux. (Issue #1.)
 - Deploy: **Forge/Ploi → Hetzner Cloud Singapore**. Queue: database → Redis เมื่อโต. Worker: Supervisor.
 - ห้ามเพิ่ม dependency ใหญ่/เปลี่ยน stack โดยไม่มี ADR.
 
