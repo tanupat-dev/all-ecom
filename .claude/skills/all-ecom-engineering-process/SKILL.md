@@ -21,6 +21,23 @@ Before writing code, propose and get a quick approval on:
 - Build in phase order; do **not** bake a later-phase concern into an earlier phase, and **never modify the Phase-1 stock/catalog kernel to satisfy a later need** — that is the exact rework the ROADMAP exists to prevent. If you think you must, that's a `standard-first` / ADR moment, not a quiet edit.
 - For a **cluster** of related work: model the whole slice first, draw the dependency graph, order the commits **topologically** (foundation → consumer). One logical unit per commit.
 
+## Decompose a phase into vertical slices (tracer bullets)
+
+Within a ROADMAP phase, cut the work into **thin vertical slices** — each one end-to-end through
+every layer it touches (migration → Action → Policy → Filament/Livewire → test) and **demoable or
+verifiable on its own**. Prefer **many thin slices over a few thick ones**. Never slice *horizontally*
+(all migrations, then all Actions) — a horizontal layer proves nothing until the last layer lands.
+
+Tag each slice so the build can run autonomously where it safely can:
+- **AFK** (away-from-keyboard) — fully specified by CONTEXT.md / ADR / ROADMAP; an agent can build it
+  end-to-end with no human decision. These are the **loop-runnable** ones.
+- **HITL** (human-in-the-loop) — needs Tan: an undocumented design decision (→ `all-ecom-standard-first`,
+  likely a new ADR), a money/stock rule not yet in CONTEXT.md (→ `all-ecom-business-rules-check`), or a
+  UX choice. **Stop and ask — do not guess.**
+
+A slice that turns out HITL mid-build → stop, resolve + **document** the decision, and it becomes AFK.
+Build each slice **TDD** (`all-ecom-tdd`): one behaviour at a time, red → green → refactor.
+
 ## Idempotency standard (migrations & seeds)
 
 - Migrations: reversible (`down()`), safe to re-run, **no full-table `UPDATE` without a `WHERE`**, every domain table gets `tenant_id` + the RLS policy + composite indexes led by `tenant_id` (ADR 0011/0013).

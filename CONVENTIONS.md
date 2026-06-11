@@ -66,7 +66,8 @@
 
 ## Skills (ใช้ตามจังหวะงาน)
 
-- ก่อนเขียนงานไม่ trivial → `all-ecom-engineering-process` (plan-first)
+- ก่อนเขียนงานไม่ trivial → `all-ecom-engineering-process` (plan-first + vertical slice + AFK/HITL)
+- เขียนแต่ละ slice → `all-ecom-tdd` (red→green→refactor, behaviour ผ่าน public interface)
 - ก่อน lock design ที่ rollback แพง (money/stock/ordering) → `all-ecom-standard-first`
 - ก่อนออกแบบฟีเจอร์ money/stock → `all-ecom-business-rules-check`
 - ก่อนสร้าง construct ใหม่ → `all-ecom-search-before-write`
