@@ -1,0 +1,35 @@
+# Laravel (pre-populated — dirs appear at Phase 0 scaffold)
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/bootstrap/cache/*.php
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+.phpunit.cache
+/.phpactor.json
+auth.json
+npm-debug.log
+yarn-error.log
+Homestead.json
+Homestead.yaml
+
+# Editor / OS
+/.idea
+/.vscode
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build / coverage
+/coverage
+.fleet
+
+# Reference platform exports — REAL data (order ids, buyer PII, financials).
+# Kept locally as importer reference; never version-controlled (see all-ecom-security-check).
+/ref doc/
