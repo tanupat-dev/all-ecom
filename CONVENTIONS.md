@@ -66,6 +66,7 @@
 
 ## Skills (ใช้ตามจังหวะงาน)
 
+- **เริ่ม/จบ session, "เหลืออะไร/รอบหน้าทำไร" → `all-ecom-handoff`** (อ่าน/อัปเดต `STATUS.md` = live checklist + handoff)
 - ก่อนเขียนงานไม่ trivial → `all-ecom-engineering-process` (plan-first + vertical slice + AFK/HITL)
 - เขียนแต่ละ slice → `all-ecom-tdd` (red→green→refactor, behaviour ผ่าน public interface)
 - ก่อน lock design ที่ rollback แพง (money/stock/ordering) → `all-ecom-standard-first`
