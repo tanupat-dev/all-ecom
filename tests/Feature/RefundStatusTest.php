@@ -8,6 +8,7 @@ use App\Enums\ReturnSubStatus;
 use App\Enums\ReturnType;
 use App\Imports\NormalizedReturn;
 use App\Models\Order;
+use App\Models\OrderLine;
 use App\Support\Money;
 use App\Tenancy\TenantContext;
 
@@ -21,7 +22,11 @@ afterEach(function () {
     app(TenantContext::class)->forget();
 });
 
-/** importShop()/returnableOrder() come from the Phase-4/5 test files. */
+/**
+ * importShop()/returnableOrder() come from the Phase-4/5 test files.
+ *
+ * @param  list<array{order_line: OrderLine, qty: int}>|null  $lines
+ */
 function refundCase(Order $order, string $id, ReturnSubStatus $subStatus, ?DateTimeImmutable $refundedAt, ?array $lines = null): void
 {
     app(UpsertReturn::class)->handle($order->shop()->firstOrFail(), new NormalizedReturn(
@@ -57,7 +62,9 @@ it('rolls up คืนบางส่วน when some but not all quantities wer
 
 it('rolls up คืนเต็มจำนวน when refunds cover every line and quantity', function () {
     $order = returnableOrder(importShop());
-    $lines = $order->lines->map(fn ($line): array => ['order_line' => $line, 'qty' => $line->qty])->all();
+    $lines = array_values($order->lines
+        ->map(fn (OrderLine $line): array => ['order_line' => $line, 'qty' => $line->qty])
+        ->all());
     refundCase($order, 'RET-12', ReturnSubStatus::Received, new DateTimeImmutable('2026-06-11 10:00:00'), $lines);
 
     expect(app(DeriveRefundStatus::class)->handle($order))->toBe(RefundStatus::Full);
