@@ -34,4 +34,13 @@ class ShopPolicy
     {
         return $user->checkPermissionTo('shop.edit');
     }
+
+    /**
+     * Downloading the Shop's stock-update Excel exposes stock numbers —
+     * the same gate as reading them.
+     */
+    public function exportStock(User $user, Shop $shop): bool
+    {
+        return $user->checkPermissionTo('stock.view');
+    }
 }
