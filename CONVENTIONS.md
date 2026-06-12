@@ -35,6 +35,8 @@ Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decis
 | POS / reactive pages | **Livewire component** (+ Alpine for the client-side cart) | `app/Livewire/...` |
 | Bulk/async work (import/export/recalc) | **Job** (queued, chunked) through the central import pipeline | `app/Jobs/...` |
 | Complex reusable query | Eloquent scope / Builder method | on the Model |
+| Domain value object (e.g. **Money**) | final readonly class | `app/Support/...` |
+| Eloquent attribute cast (e.g. **MoneyCast**) | `CastsAttributes` | `app/Casts/...` |
 
 - **Never** put business logic in a Controller, Model, or Livewire component — move it to an **Action**.
 - Controllers are thin (call an Action, return a response, nothing more). Model = relationships + casts + scopes, no heavy logic.

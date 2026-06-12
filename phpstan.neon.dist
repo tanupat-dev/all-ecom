@@ -3,6 +3,9 @@ includes:
 
 parameters:
     level: max
+    # PHPDoc generics declare intent (e.g. MoneyCast accepts Money), but runtime
+    # fail-loud guards behind them must not be flagged "always true".
+    treatPhpDocTypesAsCertain: false
     paths:
         - app
         - config
