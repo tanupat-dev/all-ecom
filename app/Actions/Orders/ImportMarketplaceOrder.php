@@ -88,13 +88,11 @@ class ImportMarketplaceOrder
             }
 
             foreach ($this->aggregate($normalized->lines) as $line) {
-                $lineTotal = $line['unit_price']->multiply($line['qty']);
-
                 $order->lines()->create([
                     'variant_id' => $line['variant']->id,
                     'qty' => $line['qty'],
                     'unit_price' => $line['unit_price'],
-                    'line_total' => $lineTotal,
+                    'line_total' => $line['line_total'],
                 ]);
             }
 
@@ -140,10 +138,11 @@ class ImportMarketplaceOrder
     /**
      * One platform order's rows aggregate per (Variant, unit price) — the
      * same SKU split across file rows becomes one Order Line; distinct
-     * prices stay distinct so money stays exact (ADR 0015).
+     * prices stay distinct and the exact line totals sum, so money stays
+     * exact (ADR 0015).
      *
-     * @param  list<array{variant: Variant, qty: int, unit_price: Money}>  $lines
-     * @return list<array{variant: Variant, qty: int, unit_price: Money}>
+     * @param  list<array{variant: Variant, qty: int, unit_price: Money, line_total?: Money}>  $lines
+     * @return list<array{variant: Variant, qty: int, unit_price: Money, line_total: Money}>
      */
     private function aggregate(array $lines): array
     {
@@ -151,11 +150,13 @@ class ImportMarketplaceOrder
 
         foreach ($lines as $line) {
             $key = $line['variant']->id.'@'.$line['unit_price']->satang;
+            $lineTotal = $line['line_total'] ?? $line['unit_price']->multiply($line['qty']);
 
             if (isset($byKey[$key])) {
                 $byKey[$key]['qty'] += $line['qty'];
+                $byKey[$key]['line_total'] = $byKey[$key]['line_total']->add($lineTotal);
             } else {
-                $byKey[$key] = $line;
+                $byKey[$key] = [...$line, 'line_total' => $lineTotal];
             }
         }
 

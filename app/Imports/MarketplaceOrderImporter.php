@@ -42,10 +42,12 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
      * Extract one platform row into the channel-agnostic per-row shape:
      * order_id, native_status, platform_sku, qty, unit_price (baht string),
      * milestones (field => DateTimeInterface|null), tracking_number,
-     * buyer_name. Throw RowImportException for anything unmappable.
+     * buyer_name, and optionally an exact line_total for exports that only
+     * give subtotals (see NormalizedOrder). Throw RowImportException for
+     * anything unmappable.
      *
      * @param  array<string, mixed>  $row
-     * @return array{order_id: string, native_status: string, platform_sku: string, qty: int, unit_price: string, milestones: array<string, DateTimeInterface|null>, tracking_number: ?string, buyer_name: ?string}
+     * @return array{order_id: string, native_status: string, platform_sku: string, qty: int, unit_price: string, milestones: array<string, DateTimeInterface|null>, tracking_number: ?string, buyer_name: ?string, line_total?: Money}
      */
     abstract protected function normalizeRow(array $row, int $rowNumber): array;
 
@@ -78,6 +80,7 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
             'variant' => $variant,
             'qty' => $normalized['qty'],
             'unit_price' => Money::fromBaht($normalized['unit_price']),
+            'line_total' => $normalized['line_total'] ?? null,
             'milestones' => $normalized['milestones'],
             'tracking_number' => $normalized['tracking_number'],
             'buyer_name' => $normalized['buyer_name'],
@@ -120,7 +123,13 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
                     throw new LogicException('normalizeRow shape drifted.');
                 }
 
-                $lines[] = ['variant' => $variant, 'qty' => $qty, 'unit_price' => $price];
+                $line = ['variant' => $variant, 'qty' => $qty, 'unit_price' => $price];
+
+                if (($row['line_total'] ?? null) instanceof Money) {
+                    $line['line_total'] = $row['line_total'];
+                }
+
+                $lines[] = $line;
             }
 
             /** @var array<string, DateTimeInterface|null> $milestones */

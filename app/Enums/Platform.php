@@ -5,6 +5,7 @@ namespace App\Enums;
 use App\Imports\LazadaOrderImporter;
 use App\Imports\MarketplaceOrderImporter;
 use App\Imports\ShopeeOrderImporter;
+use App\Imports\TiktokOrderImporter;
 
 /**
  * The concrete sales channels (CONTEXT.md: Platform).
@@ -39,8 +40,7 @@ enum Platform: string
     }
 
     /**
-     * The order-export Importer for this marketplace (ROADMAP Phase 4);
-     * null until the platform's importer ships (#34 TikTok).
+     * The order-export Importer for this marketplace (ROADMAP Phase 4).
      *
      * @return class-string<MarketplaceOrderImporter>|null
      */
@@ -49,6 +49,7 @@ enum Platform: string
         return match ($this) {
             self::Shopee => ShopeeOrderImporter::class,
             self::Lazada => LazadaOrderImporter::class,
+            self::Tiktok => TiktokOrderImporter::class,
             default => null,
         };
     }

@@ -12,7 +12,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use OpenSpout\Reader\XLSX\Reader;
+use OpenSpout\Reader\CSV\Reader as CsvReader;
+use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Throwable;
 
 /**
@@ -108,7 +109,7 @@ class RunImportJob implements ShouldQueue
      */
     private function rows(ImportJob $importJob): iterable
     {
-        $reader = new Reader;
+        $reader = $this->readerFor($importJob->stored_path);
         $reader->open(Storage::disk('local')->path($importJob->stored_path));
 
         try {
@@ -143,6 +144,17 @@ class RunImportJob implements ShouldQueue
         } finally {
             $reader->close();
         }
+    }
+
+    /**
+     * Both spreadsheet formats platforms export (TikTok orders are CSV,
+     * the rest xlsx) stream through the same row contract.
+     */
+    private function readerFor(string $storedPath): CsvReader|XlsxReader
+    {
+        return strtolower(pathinfo($storedPath, PATHINFO_EXTENSION)) === 'csv'
+            ? new CsvReader
+            : new XlsxReader;
     }
 
     /**

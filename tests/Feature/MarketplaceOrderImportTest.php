@@ -323,6 +323,27 @@ it('moves nothing for a รอชำระ order until it reaches รอแพ�
     expect(pools($a))->toBe([10, 2]);
 });
 
+it('honours an explicit exact line_total when a platform export only gives subtotals', function () {
+    $shop = importShop();
+
+    // TikTok-style: 6 units, subtotal-after-seller-discount = ฿223.00 —
+    // not evenly divisible, so the platform's exact total wins and the
+    // unit price is the floored per-unit figure (ADR 0015: no invented
+    // satang).
+    $order = app(ImportMarketplaceOrder::class)->handle($shop, new NormalizedOrder(
+        platformOrderId: 'SP-1004',
+        status: OrderStatus::AwaitingPack,
+        lines: [[
+            'variant' => variantBySku('TS-RED-M'), 'qty' => 6,
+            'unit_price' => Money::fromSatang(3716),
+            'line_total' => Money::fromSatang(22300),
+        ]],
+    ));
+
+    expect($order->lines->first()?->line_total?->satang)->toBe(22300)
+        ->and($order->total?->satang)->toBe(22300);
+});
+
 it('re-imports the same platform order id as an update, never a duplicate', function () {
     $shop = importShop();
     $row = fn (OrderStatus $status, ?DateTimeImmutable $paidDate = null): NormalizedOrder => new NormalizedOrder(

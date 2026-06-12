@@ -17,7 +17,12 @@ use DateTimeInterface;
 final readonly class NormalizedOrder
 {
     /**
-     * @param  list<array{variant: Variant, qty: int, unit_price: Money}>  $lines
+     * A line may carry an explicit exact `line_total` for exports that
+     * only give subtotals which do not divide evenly per unit (then
+     * `unit_price` is the floored per-unit figure, ADR 0015); omitted, it
+     * is `unit_price × qty`.
+     *
+     * @param  list<array{variant: Variant, qty: int, unit_price: Money, line_total?: Money}>  $lines
      * @param  array<string, DateTimeInterface|null>  $milestones
      */
     public function __construct(
