@@ -433,6 +433,11 @@ A single granular capability the system checks before allowing an action — the
 _Also_: สิทธิ์การเข้าถึง, capability
 _Avoid_: Role (a Role groups Permissions), Feature flag (toggles a feature for everyone, not a per-Role grant)
 
+**Audit Log**:
+An **append-only** record of who approved an admin-gated action (void, refund, manual discount, …) — one entry per approval, carrying the action name, the approving User, the affected record, and optional detail. Follows the system's ledger pattern: an entry is **never updated or deleted**. This is the Phase-0 audit rule ("admin-gated actions must log who approved") made concrete; every gated action records its approval here in the same flow that performs it.
+_Also_: บันทึกการอนุมัติ
+_Avoid_: Activity log (general user activity tracking — this records *approvals of gated actions* only), History (vague)
+
 ## POS
 
 **Register**:

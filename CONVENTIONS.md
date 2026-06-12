@@ -56,7 +56,7 @@ Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decis
 
 ## DB / migration
 
-- Every table: `tenant_id` (FK, leading index), `created_at/updated_at`, `created_by`.
+- Every table: `tenant_id` (FK, leading index) + the audit columns — use the **`$table->auditColumns()`** Blueprint macro (`created_at/updated_at` + `created_by` FK) and give the model `TracksCreatedBy` (`app/Models/Concerns`). `AuditColumnsCoverageTest` fails the build on a table that skips this.
 - Enable an **RLS policy** in the migration of every domain table — call the shared helper **`Rls::enable('table')`** (`app/Tenancy/Rls.php`: ENABLE + FORCE + `tenant_isolation` policy, ADR 0016/0018). Where the owner/runtime roles are split, migrations run as the owner: `php artisan migrate --database=pgsql_owner`.
 - Index by real lookups: `(tenant_id, master_sku)`, `(tenant_id, platform, shop, platform_sku)`, `(tenant_id, variant_id)` on movements, etc.
 - ledger/movements + orders: be ready for **monthly partitioning** (do it when it grows, not now).
