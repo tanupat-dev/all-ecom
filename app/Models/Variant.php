@@ -17,12 +17,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * per (Variant, Location) — ADR 0013. A Product with no real options has
  * exactly one default Variant (name = null).
  *
+ * Package dimensions (ADR 0019, Issue #46): integers in grams / millimetres
+ * — mirrors the no-float rule (ADR 0015). Platform-unit conversion (kg, cm)
+ * happens at Channel Upload Template fill time, NOT here.
+ *
  * @property int $id
  * @property int|null $tenant_id
  * @property int $product_id
  * @property string $master_sku
  * @property string|null $name
  * @property string|null $barcode
+ * @property int|null $package_weight_g
+ * @property int|null $package_width_mm
+ * @property int|null $package_length_mm
+ * @property int|null $package_height_mm
  * @property Money|null $list_price
  */
 class Variant extends Model
@@ -30,7 +38,7 @@ class Variant extends Model
     use BelongsToTenant;
     use TracksCreatedBy;
 
-    protected $fillable = ['master_sku', 'name', 'barcode', 'list_price'];
+    protected $fillable = ['master_sku', 'name', 'barcode', 'list_price', 'package_weight_g', 'package_width_mm', 'package_length_mm', 'package_height_mm'];
 
     protected function casts(): array
     {

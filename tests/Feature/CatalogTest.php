@@ -2,6 +2,7 @@
 
 use App\Actions\Catalog\CreateProduct;
 use App\Actions\Tenants\CreateTenant;
+use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Variant;
@@ -98,6 +99,137 @@ it('creates a product through the panel, entering the price in baht', function (
 
     expect($variant->list_price?->satang)->toBe(19950)
         ->and($variant->tenant_id)->not->toBeNull();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Listing master fields (ADR 0019, Issue #46)
+// ─────────────────────────────────────────────────────────────────────────────
+
+it('stores channel-agnostic Product listing fields via the Action', function () {
+    $product = app(CreateProduct::class)->handle(
+        name: 'เสื้อยืด',
+        variants: [['master_sku' => 'TS-LISTING-1', 'list_price' => Money::fromBaht('199')]],
+        meta: [
+            'english_name' => 'T-Shirt',
+            'description' => 'คอกลม ผ้าคอตตอน 100%',
+            'brand' => 'FashionBrand',
+        ],
+    );
+
+    expect($product->english_name)->toBe('T-Shirt')
+        ->and($product->description)->toBe('คอกลม ผ้าคอตตอน 100%')
+        ->and($product->brand)->toBe('FashionBrand');
+});
+
+it('stores package dimensions on Variant as integers in grams/mm via the Action', function () {
+    $product = app(CreateProduct::class)->handle(
+        name: 'กระเป๋า',
+        variants: [[
+            'master_sku' => 'BAG-PKG-1',
+            'list_price' => Money::fromBaht('590'),
+            'package_weight_g' => 350,
+            'package_width_mm' => 200,
+            'package_length_mm' => 300,
+            'package_height_mm' => 80,
+        ]],
+    );
+
+    $variant = $product->variants->firstOrFail();
+
+    expect($variant->package_weight_g)->toBe(350)
+        ->and($variant->package_width_mm)->toBe(200)
+        ->and($variant->package_length_mm)->toBe(300)
+        ->and($variant->package_height_mm)->toBe(80);
+});
+
+it('allows all listing / dimension fields to be null', function () {
+    $product = app(CreateProduct::class)->handle(
+        name: 'สินค้าทดสอบ',
+        variants: [['master_sku' => 'NULL-TEST-1', 'list_price' => Money::fromBaht('99')]],
+    );
+
+    $variant = $product->variants->firstOrFail();
+
+    expect($product->english_name)->toBeNull()
+        ->and($product->description)->toBeNull()
+        ->and($product->brand)->toBeNull()
+        ->and($variant->package_weight_g)->toBeNull()
+        ->and($variant->package_width_mm)->toBeNull()
+        ->and($variant->package_length_mm)->toBeNull()
+        ->and($variant->package_height_mm)->toBeNull();
+});
+
+it('creates a product with listing fields through the panel form', function () {
+    actingAs(User::factory()->create()->assignRole('Admin'));
+
+    Livewire\Livewire::test(App\Filament\Resources\Products\Pages\CreateProduct::class)
+        ->fillForm([
+            'name' => 'กระโปรง',
+            'english_name' => 'Skirt',
+            'description' => 'กระโปรงผ้าชีฟอง',
+            'brand' => 'StyleCo',
+            'variants' => [[
+                'master_sku' => 'SKIRT-PANEL-1',
+                'name' => null,
+                'barcode' => null,
+                'list_price' => '299',
+                'package_weight_g' => '250',
+                'package_width_mm' => '150',
+                'package_length_mm' => '200',
+                'package_height_mm' => '30',
+            ]],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $product = Product::query()->where('name', 'กระโปรง')->firstOrFail();
+    $variant = $product->variants->firstOrFail();
+
+    expect($product->english_name)->toBe('Skirt')
+        ->and($product->description)->toBe('กระโปรงผ้าชีฟอง')
+        ->and($product->brand)->toBe('StyleCo')
+        ->and($variant->package_weight_g)->toBe(250)
+        ->and($variant->package_width_mm)->toBe(150)
+        ->and($variant->package_length_mm)->toBe(200)
+        ->and($variant->package_height_mm)->toBe(30);
+});
+
+it('updates listing fields on an existing Product through the panel', function () {
+    actingAs(User::factory()->create()->assignRole('Admin'));
+
+    $product = app(CreateProduct::class)->handle(
+        name: 'เสื้อแจ็คเก็ต',
+        variants: [['master_sku' => 'JKT-EDIT-1', 'list_price' => Money::fromBaht('890')]],
+    );
+
+    $variant = $product->variants->firstOrFail();
+
+    Livewire\Livewire::test(EditProduct::class, ['record' => $product->getKey()])
+        ->fillForm([
+            'english_name' => 'Jacket',
+            'description' => 'เสื้อแจ็คเก็ตกันหนาว',
+            'brand' => 'WarmBrand',
+            'variants' => [[
+                'id' => $variant->getKey(),
+                'master_sku' => 'JKT-EDIT-1',
+                'list_price' => '890',
+                'package_weight_g' => '500',
+                'package_width_mm' => '300',
+                'package_length_mm' => '400',
+                'package_height_mm' => '50',
+            ]],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $product->refresh();
+    // Re-query by SKU — the Repeater may recreate the record with a new id.
+    $savedVariant = Variant::query()->where('master_sku', 'JKT-EDIT-1')->firstOrFail();
+
+    expect($product->english_name)->toBe('Jacket')
+        ->and($product->brand)->toBe('WarmBrand')
+        ->and($savedVariant->package_weight_g)->toBe(500)
+        ->and($savedVariant->package_height_mm)->toBe(50);
 });
 
 it('passes the cross-tenant isolation harness (products)', function () {
