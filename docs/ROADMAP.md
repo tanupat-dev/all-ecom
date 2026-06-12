@@ -148,7 +148,7 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling each Platform's own downloaded bulk-upload file from one channel-agnostic master. **Not a PIM** (ADR 0019). Depends on Phase 4 (Listing / Platform SKU); independent of Phase 6 — **owner picks the slot vs Accounting.**
 
-**Status:** A, C, D, E, Listing Status and Round-trip are built (Issues #46–#56, #60). B (template fill, #57–#59) waits on the real downloaded template files (#50, HITL) — never built from memory.
+**Status:** ✅ complete (Issues #46–#60) — built against the real downloaded template files in `ref doc/`. Only #48 (R2 bucket provisioning, production-only ops) remains open.
 
 **Build**
 - **A. Catalogue master extension** — channel-agnostic fields: Product (English name, description, brand) + Variant (package weight + dimensions); plus a **Product Image** stored on R2 (object storage), normalised 1:1.
