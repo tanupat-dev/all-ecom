@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\Listings\RelationManagers;
 
+use App\Actions\Listings\ConfirmListingUpload;
 use App\Actions\Listings\UpdateListingVariant;
+use App\Enums\ListingStatus;
 use App\Models\ListingVariant;
 use App\Support\Money;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -28,8 +31,8 @@ class VariantsRelationManager extends RelationManager
                 TextColumn::make('deal_price')
                     ->label('Deal Price (฿)')
                     ->formatStateUsing(fn (Money|string|null $state): ?string => $state instanceof Money ? $state->toBaht() : $state),
-                // Listing Status badge — read-only display (CONTEXT.md: Listing
-                // Status). Transitions are handled by later slices (#60).
+                // Listing Status badge — CONTEXT.md: Listing Status; ADR 0019.
+                // Transitions from draft → listed via the confirmUpload action.
                 TextColumn::make('listing_status')
                     ->label('สถานะ')
                     ->badge(),
@@ -38,6 +41,22 @@ class VariantsRelationManager extends RelationManager
             // seller only overrides, never adds or removes rows here.
             ->headerActions([])
             ->recordActions([
+                // Confirm upload: draft → listed (CONTEXT.md: Listing Status;
+                // Issue #60). Visible only on draft rows so it cannot be used
+                // as an unintended back-transition. Gated on listing.manage
+                // via ListingVariantPolicy::update (ADR 0012).
+                Action::make('confirmUpload')
+                    ->label('ยืนยันว่าลงแล้ว')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (ListingVariant $record): bool => $record->listing_status === ListingStatus::Draft)
+                    ->authorize(fn (ListingVariant $record): bool => auth()->user()?->can('update', $record) ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading('ยืนยันว่าลงสินค้าบนแพลตฟอร์มแล้ว')
+                    ->modalDescription('สถานะจะเปลี่ยนจาก "ร่าง" เป็น "ลงแล้ว" เมื่อยืนยัน ไม่สามารถย้อนกลับได้')
+                    ->action(function (ListingVariant $record): void {
+                        app(ConfirmListingUpload::class)->handle($record);
+                    }),
                 EditAction::make()
                     ->schema([
                         TextInput::make('platform_sku')
