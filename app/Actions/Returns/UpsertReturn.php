@@ -53,6 +53,7 @@ class UpsertReturn
                 'refund_amount' => $normalized->refundAmount,
                 'tracking_number' => $normalized->trackingNumber,
                 'requested_at' => $normalized->requestedAt,
+                'refunded_at' => $normalized->refundedAt,
             ];
 
             if ($return === null) {

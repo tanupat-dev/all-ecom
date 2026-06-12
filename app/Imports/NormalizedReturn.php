@@ -29,5 +29,6 @@ final readonly class NormalizedReturn
         public ?Money $refundAmount = null,
         public ?string $trackingNumber = null,
         public ?DateTimeInterface $requestedAt = null,
+        public ?DateTimeInterface $refundedAt = null,
     ) {}
 }

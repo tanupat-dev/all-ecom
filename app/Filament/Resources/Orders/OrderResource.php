@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders;
 
+use App\Actions\Returns\DeriveRefundStatus;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Models\Order;
 use BackedEnum;
@@ -35,6 +36,11 @@ class OrderResource extends Resource
                 ->label('ยอดรวม (บาท)')
                 ->state(fn (Order $record): string => $record->total?->toBaht() ?? '-'),
             TextColumn::make('created_date')->label('วันที่สั่ง')->dateTime()->sortable(),
+            TextColumn::make('refund_status')
+                ->label('สถานะคืนเงิน')
+                ->badge()
+                ->state(fn (Order $record): string => app(DeriveRefundStatus::class)->handle($record)->value)
+                ->toggleable(isToggledHiddenByDefault: true),
             // CONTEXT.md: Cancellation Reason — the Seller Cancellation
             // Rate drilldown; raw platform text in the tooltip.
             TextColumn::make('cancelled_by')

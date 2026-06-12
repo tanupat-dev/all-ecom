@@ -111,6 +111,14 @@ class Order extends Model
     }
 
     /**
+     * @return HasMany<OrderReturn, $this>
+     */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class, 'ref_order_id');
+    }
+
+    /**
      * Pre-Pack = no Tracking Number yet (CONTEXT.md: Tracking Number) —
      * the window where lines may still be edited/cancelled.
      */
