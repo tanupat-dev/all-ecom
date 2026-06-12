@@ -10,11 +10,13 @@ use App\Livewire\PosTerminal;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\ProductImage;
 use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Support\Money;
 use App\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -130,4 +132,74 @@ it('blocks the POS screen without pos.checkout', function () {
     actingAs($outsider);
 
     get('/pos')->assertForbidden();
+});
+
+// ─── Product Image on POS (Issue #55) ────────────────────────────────────────
+
+it('cart payload includes image_url as a non-empty string when a primary image exists', function () {
+    Storage::fake('product-images');
+    openPosShift();
+    $variant = posVariant('POS-IMG-1', '120');
+
+    ProductImage::create([
+        'product_id' => $variant->product_id,
+        'path' => 'tenants/1/product-images/pos-img-1.jpg',
+        'sort_order' => 0,
+    ]);
+
+    Livewire::test(PosTerminal::class)
+        ->set('code', 'POS-IMG-1')
+        ->call('addItem')
+        ->assertSet('cart', function (array $cart): bool {
+            expect($cart)->toHaveCount(1)
+                ->and(data_get($cart, '0.image_url'))->toBeString()
+                ->and(data_get($cart, '0.image_url'))->not->toBeEmpty();
+
+            return true;
+        });
+});
+
+it('cart payload has null image_url when the product has no images', function () {
+    openPosShift();
+    posVariant('POS-NOIMG-1', '80');
+
+    Livewire::test(PosTerminal::class)
+        ->set('code', 'POS-NOIMG-1')
+        ->call('addItem')
+        ->assertSet('cart', function (array $cart): bool {
+            expect($cart)->toHaveCount(1)
+                ->and($cart[0])->toHaveKey('image_url')
+                ->and(data_get($cart, '0.image_url'))->toBeNull();
+
+            return true;
+        });
+});
+
+it('POS terminal renders without error when the cart line has an image', function () {
+    Storage::fake('product-images');
+    openPosShift();
+    $variant = posVariant('POS-IMG-2', '200');
+
+    ProductImage::create([
+        'product_id' => $variant->product_id,
+        'path' => 'tenants/1/product-images/pos-img-2.jpg',
+        'sort_order' => 0,
+    ]);
+
+    Livewire::test(PosTerminal::class)
+        ->set('code', 'POS-IMG-2')
+        ->call('addItem')
+        ->assertStatus(200)
+        ->assertSee('สินค้า POS-IMG-2');
+});
+
+it('POS terminal renders without error when the cart line has no image', function () {
+    openPosShift();
+    posVariant('POS-NOIMG-2', '50');
+
+    Livewire::test(PosTerminal::class)
+        ->set('code', 'POS-NOIMG-2')
+        ->call('addItem')
+        ->assertStatus(200)
+        ->assertSee('สินค้า POS-NOIMG-2');
 });

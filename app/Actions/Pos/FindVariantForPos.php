@@ -19,8 +19,8 @@ class FindVariantForPos
             throw new InvalidArgumentException('Scan or type a barcode / Master SKU.');
         }
 
-        return Variant::query()->where('barcode', $code)->first()
-            ?? Variant::query()->where('master_sku', $code)->first()
+        return Variant::query()->with('product.primaryImage')->where('barcode', $code)->first()
+            ?? Variant::query()->with('product.primaryImage')->where('master_sku', $code)->first()
             ?? throw new InvalidArgumentException("ไม่พบสินค้า [{$code}] — ตรวจสอบบาร์โค้ดหรือ Master SKU");
     }
 }

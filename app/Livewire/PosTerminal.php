@@ -30,7 +30,7 @@ use Throwable;
 #[Layout('layouts.pos')]
 class PosTerminal extends Component
 {
-    /** @var array<int, array{variant_id: int, sku: string, name: string, qty: int, unit_satang: int, discount_baht: string, discount_percent: string}> */
+    /** @var array<int, array{variant_id: int, sku: string, name: string, image_url: string|null, qty: int, unit_satang: int, discount_baht: string, discount_percent: string}> */
     public array $cart = [];
 
     public string $code = '';
@@ -70,10 +70,14 @@ class PosTerminal extends Component
             }
         }
 
+        // product.primaryImage is eager-loaded by FindVariantForPos — avoids N+1
+        $product = $variant->product;
+
         $this->cart[] = [
             'variant_id' => $variant->id,
             'sku' => $variant->master_sku,
-            'name' => $variant->product()->firstOrFail()->name.($variant->name !== null ? " ({$variant->name})" : ''),
+            'name' => ($product !== null ? $product->name : $variant->master_sku).($variant->name !== null ? " ({$variant->name})" : ''),
+            'image_url' => $product?->primaryImage?->url,
             'qty' => 1,
             'unit_satang' => $variant->list_price->satang ?? 0,
             'discount_baht' => '',
@@ -143,15 +147,23 @@ class PosTerminal extends Component
             ->where('status', OrderStatus::PendingPayment)
             ->findOrFail($orderId);
 
-        $this->cart = $parked->lines()->with('variant.product')->get()->map(fn (OrderLine $line): array => [
-            'variant_id' => $line->variant_id,
-            'sku' => $line->variant()->firstOrFail()->master_sku,
-            'name' => $line->variant()->firstOrFail()->product()->firstOrFail()->name,
-            'qty' => $line->qty,
-            'unit_satang' => $line->unit_price->satang ?? 0,
-            'discount_baht' => $line->discount !== null && ! $line->discount->isZero() ? $line->discount->toBaht() : '',
-            'discount_percent' => '',
-        ])->all();
+        // Eager-load variant + product + primaryImage to avoid N+1 per cart line
+        $this->cart = $parked->lines()->with('variant.product.primaryImage')->get()->map(function (OrderLine $line): array {
+            $variant = $line->variant;
+            $product = $variant?->product;
+
+            return [
+                'variant_id' => $line->variant_id,
+                'sku' => $variant !== null ? $variant->master_sku : '',
+                'name' => ($product !== null ? $product->name : ($variant !== null ? $variant->master_sku : ''))
+                    .($variant !== null && $variant->name !== null ? " ({$variant->name})" : ''),
+                'image_url' => $product?->primaryImage?->url,
+                'qty' => $line->qty,
+                'unit_satang' => $line->unit_price->satang ?? 0,
+                'discount_baht' => $line->discount !== null && ! $line->discount->isZero() ? $line->discount->toBaht() : '',
+                'discount_percent' => '',
+            ];
+        })->all();
         $this->cartDiscount = $parked->cart_discount !== null && ! $parked->cart_discount->isZero()
             ? $parked->cart_discount->toBaht()
             : '';

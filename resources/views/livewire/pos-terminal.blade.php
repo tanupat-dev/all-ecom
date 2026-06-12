@@ -18,7 +18,16 @@
         <tbody>
         @foreach ($cart as $index => $line)
             <tr wire:key="line-{{ $index }}">
-                <td>{{ $line['name'] }} <small>{{ $line['sku'] }}</small></td>
+                <td>
+                    @if (!empty($line['image_url']))
+                        <img src="{{ $line['image_url'] }}" alt=""
+                             style="width:40px;height:40px;object-fit:cover;vertical-align:middle;border-radius:4px;margin-right:6px">
+                    @else
+                        <span style="display:inline-block;width:40px;height:40px;background:#e5e7eb;border-radius:4px;margin-right:6px;vertical-align:middle"
+                              aria-hidden="true"></span>
+                    @endif
+                    {{ $line['name'] }} <small>{{ $line['sku'] }}</small>
+                </td>
                 <td><input type="number" min="1" wire:model.live="cart.{{ $index }}.qty" style="width:4.5rem"></td>
                 <td>{{ number_format($line['unit_satang'] / 100, 2) }}</td>
                 <td><input type="text" wire:model.live="cart.{{ $index }}.discount_baht" style="width:6rem"></td>
