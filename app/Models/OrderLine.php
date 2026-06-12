@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $variant_id
  * @property int $qty
  * @property Money|null $unit_price
+ * @property Money|null $discount
  * @property Money|null $line_total
  */
 class OrderLine extends Model
@@ -27,12 +28,13 @@ class OrderLine extends Model
     use BelongsToTenant;
     use TracksCreatedBy;
 
-    protected $fillable = ['order_id', 'variant_id', 'qty', 'unit_price', 'line_total'];
+    protected $fillable = ['order_id', 'variant_id', 'qty', 'unit_price', 'discount', 'line_total'];
 
     protected function casts(): array
     {
         return [
             'unit_price' => MoneyCast::class,
+            'discount' => MoneyCast::class,
             'line_total' => MoneyCast::class,
         ];
     }

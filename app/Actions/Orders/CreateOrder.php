@@ -20,9 +20,13 @@ use LogicException;
 class CreateOrder
 {
     /**
-     * @param  list<array{variant: Variant, qty: int, unit_price: Money}>  $lines
+     * Line `discount` and $cartDiscount are Manual Discounts already
+     * resolved to satang (the % → satang rounding is the caller's site,
+     * ADR 0015); both default to zero.
+     *
+     * @param  list<array{variant: Variant, qty: int, unit_price: Money, discount?: Money}>  $lines
      */
-    public function handle(Shop $shop, array $lines, ?string $buyerName = null, ?string $buyerPhone = null): Order
+    public function handle(Shop $shop, array $lines, ?string $buyerName = null, ?string $buyerPhone = null, ?Money $cartDiscount = null): Order
     {
         if ($shop->platform_type === PlatformType::Marketplace) {
             throw new LogicException('Marketplace Orders are read-only mirrors — they enter via import only, never manual creation.');
@@ -38,7 +42,7 @@ class CreateOrder
             }
         }
 
-        return DB::transaction(function () use ($shop, $lines, $buyerName, $buyerPhone): Order {
+        return DB::transaction(function () use ($shop, $lines, $buyerName, $buyerPhone, $cartDiscount): Order {
             $total = Money::fromSatang(0);
 
             $order = Order::query()->create([
@@ -46,24 +50,27 @@ class CreateOrder
                 'platform_type' => $shop->platform_type,
                 'status' => OrderStatus::PendingPayment,
                 'total' => $total,
+                'cart_discount' => $cartDiscount ?? Money::fromSatang(0),
                 'buyer_name' => $buyerName,
                 'buyer_phone' => $buyerPhone,
                 'created_date' => now(),
             ]);
 
             foreach ($lines as $line) {
-                $lineTotal = $line['unit_price']->multiply($line['qty']);
+                $discount = $line['discount'] ?? Money::fromSatang(0);
+                $lineTotal = $line['unit_price']->multiply($line['qty'])->subtract($discount);
                 $total = $total->add($lineTotal);
 
                 $order->lines()->create([
                     'variant_id' => $line['variant']->id,
                     'qty' => $line['qty'],
                     'unit_price' => $line['unit_price'],
+                    'discount' => $discount,
                     'line_total' => $lineTotal,
                 ]);
             }
 
-            $order->update(['total' => $total]);
+            $order->update(['total' => $total->subtract($cartDiscount ?? Money::fromSatang(0))]);
 
             return $order->load('lines');
         });

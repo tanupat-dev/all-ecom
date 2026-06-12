@@ -29,6 +29,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $tracking_number
  * @property string|null $buyer_name
  * @property string|null $buyer_phone
+ * @property int|null $shift_id
+ * @property int|null $receipt_no
+ * @property Money|null $cart_discount
+ * @property int|null $ref_order_id
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
  * @property Carbon|null $shipped_date
@@ -54,6 +58,7 @@ class Order extends Model
     protected $fillable = [
         'shop_id', 'platform_type', 'platform_order_id', 'status', 'total',
         'tracking_number', 'buyer_name', 'buyer_phone',
+        'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -63,6 +68,7 @@ class Order extends Model
             'platform_type' => PlatformType::class,
             'status' => OrderStatus::class,
             'total' => MoneyCast::class,
+            'cart_discount' => MoneyCast::class,
             'created_date' => 'datetime',
             'paid_date' => 'datetime',
             'shipped_date' => 'datetime',
@@ -86,6 +92,14 @@ class Order extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(OrderLine::class);
+    }
+
+    /**
+     * @return HasMany<Payment, $this>
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     /**

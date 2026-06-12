@@ -4,6 +4,8 @@ namespace App\Actions\Pos;
 
 use App\Enums\CashMovementType;
 use App\Enums\ShiftStatus;
+use App\Enums\TenderType;
+use App\Models\Order;
 use App\Models\Shift;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -60,12 +62,42 @@ class CloseShift
     }
 
     /**
-     * Cash-tender Payment Lines of this Shift's Orders, net of change,
-     * minus cash refunds. Orders cannot carry Payments before the #26
-     * checkout slice, so the sum is genuinely zero until then.
+     * Cash-tender Payment Lines of this Shift's Orders, net of the change
+     * handed back (change = tendered − total, covered by cash only). A
+     * POS Return's negative cash Payment Lines subtract naturally — the
+     * "− cash refunds" term (CONTEXT.md: Shift).
      */
     private function cashSalesNet(Shift $shift): Money
     {
-        return Money::fromSatang(0);
+        $net = Money::fromSatang(0);
+
+        $orders = Order::query()
+            ->where('shift_id', $shift->id)
+            ->with('payments')
+            ->get();
+
+        foreach ($orders as $order) {
+            $tendered = Money::fromSatang(0);
+            $cash = Money::fromSatang(0);
+
+            foreach ($order->payments as $payment) {
+                $amount = $payment->amount ?? Money::fromSatang(0);
+                $tendered = $tendered->add($amount);
+
+                if ($payment->tender_type === TenderType::Cash) {
+                    $cash = $cash->add($amount);
+                }
+            }
+
+            $change = $tendered->subtract($order->total ?? Money::fromSatang(0));
+
+            if ($change->isNegative()) {
+                $change = Money::fromSatang(0);
+            }
+
+            $net = $net->add($cash->subtract($change));
+        }
+
+        return $net;
     }
 }
