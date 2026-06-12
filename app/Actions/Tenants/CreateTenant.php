@@ -2,10 +2,12 @@
 
 namespace App\Actions\Tenants;
 
+use App\Authorization\PermissionCatalogue;
 use App\Models\Location;
 use App\Models\Tenant;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 /**
  * Creates a Tenant with its auto-provisioned default Location (ADR 0013 —
@@ -32,6 +34,15 @@ class CreateTenant
                     'name' => 'คลังหลัก',
                     'is_default' => true,
                 ]);
+
+                // The two editable default Roles every Tenant starts with
+                // (ADR 0012): Admin = everything, Cashier = the POS subset.
+                PermissionCatalogue::ensureSeeded();
+
+                Role::findOrCreate('Admin', 'web')
+                    ->syncPermissions(PermissionCatalogue::ALL);
+                Role::findOrCreate('Cashier', 'web')
+                    ->syncPermissions(PermissionCatalogue::CASHIER);
             } finally {
                 $previous !== null ? $this->context->set($previous) : $this->context->forget();
             }

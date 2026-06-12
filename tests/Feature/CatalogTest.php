@@ -82,7 +82,7 @@ it('rejects a duplicate barcode within the tenant', function () {
 })->throws(QueryException::class, 'variants_tenant_barcode_unique');
 
 it('creates a product through the panel, entering the price in baht', function () {
-    actingAs(User::factory()->create());
+    actingAs(User::factory()->create()->assignRole('Admin'));
 
     Livewire\Livewire::test(App\Filament\Resources\Products\Pages\CreateProduct::class)
         ->fillForm([

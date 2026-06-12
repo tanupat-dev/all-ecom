@@ -208,7 +208,7 @@ it('shows the balances page with a negative Available visible', function () {
     $append->handle($variant, $location, StockAction::Receive, 2);
     $append->handle($variant, $location, StockAction::Reserve, 5);
 
-    Pest\Laravel\actingAs(User::factory()->create());
+    Pest\Laravel\actingAs(User::factory()->create()->assignRole('Admin'));
 
     Pest\Laravel\get(StockBalanceResource::getUrl('index'))
         ->assertOk()

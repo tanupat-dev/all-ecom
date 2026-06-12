@@ -13,3 +13,7 @@ parameters:
         - database
         - routes
         - tests
+    excludePaths:
+        # Vendor-authored stub published by spatie/laravel-permission —
+        # third-party code, not held to this repo's level-max bar.
+        - database/migrations/2026_06_12_055941_create_permission_tables.php

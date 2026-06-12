@@ -25,7 +25,10 @@ it('resolves the tenant from the authenticated user on every request', function 
     Location::query()->create(['name' => 'คลังของ B']);
     app(TenantContext::class)->forget();
 
+    app(TenantContext::class)->set($tenantA);
     $userA = User::factory()->create(['tenant_id' => $tenantA->id]);
+    $userA->assignRole('Admin');
+    app(TenantContext::class)->forget();
 
     actingAs($userA);
 

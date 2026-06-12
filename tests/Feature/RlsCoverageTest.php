@@ -24,7 +24,9 @@ function rlsExemptTables(): array
         'password_reset_tokens',
         'sessions',
         'tenants', // the tenant registry itself
-        'users', // gains tenant_id at Phase 2 (User ↔ Tenant tie) — re-scope then
+        'users', // carries tenant_id but stays RLS-free (auth resolves pre-context)
+        'permissions', // the system-defined global catalogue (ADR 0012) — not tenant data
+        'role_has_permissions', // keyed by role; the role row itself is RLS-scoped
     ];
 }
 

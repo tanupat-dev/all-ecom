@@ -69,7 +69,7 @@ it('lists only the current tenant locations in the panel', function () {
     Location::query()->create(['name' => 'คลังของอีกร้าน']);
 
     app(TenantContext::class)->set($tenant);
-    actingAs(User::factory()->create());
+    actingAs(User::factory()->create(['tenant_id' => $tenant->id])->assignRole('Admin'));
 
     get(LocationResource::getUrl('index'))
         ->assertOk()

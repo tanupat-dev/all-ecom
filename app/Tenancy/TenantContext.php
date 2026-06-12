@@ -4,6 +4,7 @@ namespace App\Tenancy;
 
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Holds the current Tenant and mirrors it into the Postgres session variable
@@ -19,12 +20,27 @@ class TenantContext
     {
         $this->current = $tenant;
         $this->applyToConnection();
+        $this->applyToPermissions();
     }
 
     public function forget(): void
     {
         $this->current = null;
         $this->applyToConnection();
+        $this->applyToPermissions();
+    }
+
+    /**
+     * Roles are per-Tenant (spatie teams = tenant_id, ADR 0012). The
+     * registrar's cache is flushed on every switch — it is per-request
+     * ('array' store) precisely so a cache warmed under one tenant's RLS
+     * view can never leak into another (see the RLS permission migration).
+     */
+    private function applyToPermissions(): void
+    {
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->setPermissionsTeamId($this->current?->id);
+        $registrar->forgetCachedPermissions();
     }
 
     public function current(): ?Tenant

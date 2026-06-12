@@ -23,6 +23,13 @@ function auditColumnsExemptTables(): array
         'sessions',
         'tenants', // created at signup (deferred) — re-visit with onboarding
         'users', // reshaped at Phase 2 (User ↔ Tenant tie)
+        // spatie/laravel-permission schema (third-party, ADR 0012) — role
+        // mutations are audited at the Action layer, not via created_by.
+        'permissions',
+        'roles',
+        'model_has_permissions',
+        'model_has_roles',
+        'role_has_permissions',
     ];
 }
 
