@@ -213,7 +213,7 @@ _Also_: จุดเริ่มนับเงินเข้า
 _Avoid_: Payout date (that's the result), settlement anchor
 
 **Stock Movement**:
-An immutable ledger entry recording one change to a Variant's stock state **at a Location**. Every change to On-Hand, Reserved, or Damaged Stock creates exactly one Stock Movement — current quantities are derived from (or denormalized against) the ledger, keyed `(tenant, variant, location)`. Each Movement records: `variant`, `location`, `action`, `qty_delta`, `timestamp`, `ref_type` + `ref_id` (Order / Stock Adjustment / null), `note`. Ledger entries are **never updated or deleted** — corrections are made by appending new entries.
+An immutable ledger entry recording one change to a Variant's stock state **at a Location**. Every change to On-Hand, Reserved, or Damaged Stock creates exactly one Stock Movement — current quantities are derived from (or denormalized against) the ledger, keyed `(tenant, variant, location)`. Each Movement records: `variant`, `location`, `action`, `qty_delta`, `timestamp`, `ref_type` + `ref_id` (Order / Stock Adjustment / null), `note`; a `SHIP` additionally records `reserved_released` — the reservation that Order actually held (marketplace/social = line qty, POS = 0) — so the ledger alone fully replays every pool. Ledger entries are **never updated or deleted** — corrections are made by appending new entries.
 
 Action types (9):
 - `RECEIVE` — goods in (supplier, returned Inbound Scan, manual receive); On-Hand +
