@@ -3,17 +3,14 @@
 namespace App\Actions\Returns;
 
 use App\Actions\Audit\RecordAuditLog;
-use App\Actions\Stock\AppendStockMovement;
+use App\Actions\Stock\ReceiveReturnedGoods;
 use App\Enums\ReturnSubStatus;
 use App\Enums\ReturnType;
-use App\Enums\StockAction;
 use App\Models\Location;
 use App\Models\OrderReturn;
-use App\Models\ReturnLine;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
 use LogicException;
 
 /**
@@ -27,7 +24,7 @@ use LogicException;
 class RecordInboundScan
 {
     public function __construct(
-        private readonly AppendStockMovement $append,
+        private readonly ReceiveReturnedGoods $receive,
         private readonly RecordAuditLog $audit,
     ) {}
 
@@ -54,11 +51,12 @@ class RecordInboundScan
             $location = Location::query()->findOrFail($return->shop()->firstOrFail()->location_id);
 
             foreach ($return->lines()->with('orderLine')->get() as $line) {
-                $this->receive(
-                    $return,
-                    $line,
+                $this->receive->handle(
+                    $line->orderLine()->firstOrFail()->variant()->firstOrFail(),
                     $location,
+                    $line->qty,
                     in_array($line->id, $damagedReturnLineIds, true),
+                    $return,
                 );
             }
 
@@ -71,29 +69,5 @@ class RecordInboundScan
 
             return $return->refresh()->load('lines');
         });
-    }
-
-    private function receive(OrderReturn $return, ReturnLine $line, Location $location, bool $damaged): void
-    {
-        $variant = $line->orderLine()->firstOrFail()->variant()->firstOrFail();
-
-        if ($variant->isBundle()) {
-            if ($damaged) {
-                throw new InvalidArgumentException('A damaged Bundle return is out of MVP scope — adjust the damaged components via Stock Adjustment.');
-            }
-
-            // Components come back, never "bundle stock" (ADR 0014).
-            foreach ($variant->bundleComponents()->with('component')->get() as $bom) {
-                $this->append->handle($bom->component()->firstOrFail(), $location, StockAction::Receive, $line->qty * $bom->qty, ref: $return);
-            }
-
-            return;
-        }
-
-        $this->append->handle($variant, $location, StockAction::Receive, $line->qty, ref: $return);
-
-        if ($damaged) {
-            $this->append->handle($variant, $location, StockAction::Damage, $line->qty, ref: $return, note: 'ตรวจสภาพตอนสแกนรับของ — ชำรุด');
-        }
     }
 }

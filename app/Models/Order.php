@@ -7,6 +7,7 @@ use App\Enums\CancelledBy;
 use App\Enums\CancelReasonCategory;
 use App\Enums\OrderStatus;
 use App\Enums\PlatformType;
+use App\Enums\ReturnSubStatus;
 use App\Models\Concerns\TracksCreatedBy;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
@@ -38,6 +39,7 @@ use Illuminate\Support\Carbon;
  * @property CancelledBy|null $cancelled_by
  * @property CancelReasonCategory|null $cancel_reason_category
  * @property string|null $cancel_reason_source
+ * @property ReturnSubStatus|null $return_sub_status
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
  * @property Carbon|null $shipped_date
@@ -64,7 +66,7 @@ class Order extends Model
         'shop_id', 'platform_type', 'platform_order_id', 'status', 'total',
         'tracking_number', 'buyer_name', 'buyer_phone',
         'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
-        'cancelled_by', 'cancel_reason_category', 'cancel_reason_source',
+        'cancelled_by', 'cancel_reason_category', 'cancel_reason_source', 'return_sub_status',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -75,6 +77,7 @@ class Order extends Model
             'status' => OrderStatus::class,
             'cancelled_by' => CancelledBy::class,
             'cancel_reason_category' => CancelReasonCategory::class,
+            'return_sub_status' => ReturnSubStatus::class,
             'total' => MoneyCast::class,
             'cart_discount' => MoneyCast::class,
             'created_date' => 'datetime',

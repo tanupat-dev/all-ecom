@@ -3,9 +3,13 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Actions\Returns\DeriveRefundStatus;
+use App\Actions\Returns\RecordBouncedInboundScan;
+use App\Enums\OrderStatus;
+use App\Enums\ReturnSubStatus;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Models\Order;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -52,6 +56,17 @@ class OrderResource extends Resource
                 ->badge()
                 ->tooltip(fn (Order $record): ?string => $record->cancel_reason_source)
                 ->toggleable(isToggledHiddenByDefault: true),
+        ])->recordActions([
+            // A ตีกลับ package credits stock only on the physical scan
+            // (CONTEXT.md: Inbound Scan; ADR 0006).
+            Action::make('bouncedScan')
+                ->label('สแกนรับของตีกลับ')
+                ->icon('heroicon-o-qr-code')
+                ->visible(fn (Order $record): bool => $record->status === OrderStatus::Bounced
+                    && $record->return_sub_status !== ReturnSubStatus::Received)
+                ->authorize(fn (): bool => auth()->user()?->checkPermissionTo('return.manage') ?? false)
+                ->requiresConfirmation()
+                ->action(fn (Order $record) => app(RecordBouncedInboundScan::class)->handle($record)),
         ]);
     }
 
