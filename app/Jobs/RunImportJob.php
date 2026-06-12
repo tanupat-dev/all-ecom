@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\ImportJobStatus;
 use App\Imports\Importer;
+use App\Imports\ImportJobAware;
 use App\Imports\RowImportException;
 use App\Models\ImportJob;
 use App\Tenancy\RestoreTenantContext;
@@ -53,6 +54,10 @@ class RunImportJob implements ShouldQueue
 
         /** @var Importer $importer */
         $importer = app($importJob->importer);
+
+        if ($importer instanceof ImportJobAware) {
+            $importer->setImportJob($importJob);
+        }
 
         $processed = 0;
         $errors = [];
