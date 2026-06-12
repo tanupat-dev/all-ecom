@@ -6,8 +6,9 @@ across marketplaces (Shopee/Lazada/TikTok via **Excel import/export — no API**
 ## Read first (sources of truth — point here, don't restate)
 - **`CONVENTIONS.md`** — structure / patterns / quality gates. **Read before writing any code.**
 - **`CONTEXT.md`** — domain glossary (Tenant, Variant, Stock Movement, Shift, …). All terms come from here.
-- **`docs/adr/0001–0018`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
-- **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently **Phases 0–5 complete** — POS loop + marketplace import + Returns (Return entity, Inbound Scan → Stock Return, ตีกลับ scan, 3-platform return importers, Refund Status rollup, stale flag; `ref doc/` is the local-only importer reference). Next = **Phase 6 Accounting** (no Issues filed yet — decompose with `all-ecom-to-issues` first).
+- **`docs/adr/0001–0019`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
+- **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently **Phases 0–5 complete** — POS loop + marketplace import + Returns (Return entity, Inbound Scan → Stock Return, ตีกลับ scan, 3-platform return importers, Refund Status rollup, stale flag). Next = **Phase 6 Accounting** or **Phase 9 Product Listing / Channel Upload** (ADR 0019 — bounded channel-listing assist, not a PIM; owner picks the slot) — both planned, no Issues filed yet (decompose with `all-ecom-to-issues` first).
+- **`ref doc/`** — each platform's **real** export/template files (order, return, product, accounting), local-only. With the platforms' bulk-upload / open-API docs, this is the **authoritative column schema** for any importer or the Channel-Upload-Template fill engine — **read the actual file/doc before building or changing one; never infer column shapes from memory.**
 
 ## Stack (locked — changing it requires an ADR)
 Laravel 13 · Filament 5 (back-office) · Livewire 4 + Alpine (POS) · PostgreSQL · deploy Forge/Ploi → Hetzner.
@@ -32,3 +33,17 @@ before creating a construct → `all-ecom-search-before-write` · before designi
 before locking a costly decision → `all-ecom-standard-first` · before committing sensitive code → `all-ecom-security-check` ·
 verifying a change → `all-ecom-verify` · **every commit that changes behaviour / a name / a term → `all-ecom-consistency-sweep`** ·
 end of session → `all-ecom-handoff`.
+
+## Execution model (orchestrator–worker — default for substantial work)
+
+For any **substantial / multi-slice** work (a feature, a phase, a refactor — not a trivial edit or a conversational turn), work in an **orchestrator–worker** pattern, routing each slice to the cheapest model that fits — proven to cut cost ~40–90% at equal quality, and the way Anthropic's own multi-agent system runs.
+
+- **Orchestrator = this main session** — owns the plan, decomposition, integration, review, and the consistency sweep. Best run on **Fable** (`/model fable`) for hard work; Opus otherwise. A smart planner writes crisp, well-specified slices, which is what lets cheap workers succeed.
+- **Delegate implementation to subagents** (`.claude/agents/`), routed by slice risk:
+  - **`impl-worker` (Sonnet)** — deterministic slices: importers/exporters, fill engine, coverage, CRUD, Filament/Livewire, non-money UI.
+  - **`impl-critical` (Opus)** — correctness-critical: money (satang↔baht), stock ledger/movements/oversell/bundles, tenancy/RLS, payments, reconciliation.
+  - **`format-worker` (Haiku)** — mechanical: formatting, renames, boilerplate, doc sweeps.
+- **Keep the planner strong** — never blanket-set `CLAUDE_CODE_SUBAGENT_MODEL` (it downgrades the planner too → compounding errors). Route per slice instead.
+- Each worker follows the full process (CONVENTIONS + TDD + search-before-write + the money/stock/security checks); the **orchestrator verifies and owns commit + the consistency sweep**.
+
+This is a working-style convention (read every session), not a hook — the one knob the human sets is the main-session model.

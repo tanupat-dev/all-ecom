@@ -2,7 +2,7 @@
 
 **Read this file before writing any code, every time.** Goal: one convention across the whole project, the same structure in every feature — never invent a new pattern. To deviate from this, the reason must be written in an ADR.
 
-Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0018) · **`docs/ROADMAP.md`** (build order).
+Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0019) · **`docs/ROADMAP.md`** (build order).
 
 ---
 
@@ -34,7 +34,7 @@ Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decis
 | Back-office CRUD/screens | **Filament Resource** (Schema/Table/Action per the template) | `app/Filament/...` |
 | POS / reactive pages | **Livewire component** (+ Alpine for the client-side cart) | `app/Livewire/...` |
 | Bulk/async work (import/export/recalc) | **Job** (queued, chunked) through the central import pipeline | `app/Jobs/...` |
-| New Excel import | implement **`App\Imports\Importer`** (mapRow fail-loud + upsertChunk) and start it via the **`StartImport`** Action — never a one-off parser (streaming = openspout, encapsulated behind the pipeline) | `app/Imports/...` |
+| New Excel import | implement **`App\Imports\Importer`** (mapRow fail-loud + upsertChunk) and start it via the **`StartImport`** Action — never a one-off parser (streaming = openspout, encapsulated behind the pipeline). Where the seller **owns** the data, pair it with an **export** (round-trip edit → re-import, SKU-keyed; ADR 0019) | `app/Imports/...` |
 | Complex reusable query | Eloquent scope / Builder method | on the Model |
 | Domain value object (e.g. **Money**) | final readonly class | `app/Support/...` |
 | Eloquent attribute cast (e.g. **MoneyCast**) | `CastsAttributes` | `app/Casts/...` |

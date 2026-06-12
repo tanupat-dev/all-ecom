@@ -9,7 +9,7 @@ A greenfield build order designed to go **1 → N forward without ever looping b
 3. **Later phases only ADD** — a new slice (POS, marketplace, accounting…) extends the kernel by *adding* a new entity/field/consumer, never by *changing* the core.
 4. **The only condition that allows going back to fix an earlier phase**: it genuinely conflicts with an industry standard, or the owner deliberately changes a decision. Nothing else.
 
-Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0018`.
+Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0019`.
 
 ---
 
@@ -100,7 +100,7 @@ The sales channel with zero external dependencies → real usable product fastes
 Extends the Order kernel with an external channel. The biggest one, because it's per-platform.
 
 **Build**
-- **Listing / Platform SKU** — the projection layer (marketplace only). Build a per-Shop **`(Shop, Platform SKU) → Variant` resolution map** (a function, **many-to-one OK, not necessarily one-to-one**): a SKU repeated across listings / many SKUs → one Variant = supported; one SKU pointing at 2 Variants = **fail-loud conflict** for the seller to resolve. Master SKU unique per business. stock export writes Available to every Platform SKU of that Variant. **Scope = lean/opportunistic (B):** keep the mapping + Deal Price + whatever fields the import gives us (category/image URL) read-only — **not content management/PIM** (an OMS category, no API). additive to full content later.
+- **Listing / Platform SKU** — the projection layer (marketplace only). Build a per-Shop **`(Shop, Platform SKU) → Variant` resolution map** (a function, **many-to-one OK, not necessarily one-to-one**): a SKU repeated across listings / many SKUs → one Variant = supported; one SKU pointing at 2 Variants = **fail-loud conflict** for the seller to resolve. Master SKU unique per business. stock export writes Available to every Platform SKU of that Variant. **Scope = lean/opportunistic (B):** keep the mapping + Deal Price + whatever fields the import gives us (category/image URL) read-only — **not content management/PIM** (an OMS category, no API). The bounded channel-listing *assist* (template fill + image hosting + coverage) that was "additive later" is now specced as **Phase 9** (ADR 0019) — still not a PIM.
 - **Order importers** (Shopee/Lazada/TikTok) — Excel parse, **status mapping fail-loud** (ADR 0005), upsert/dedup `(platform,shop,order_id)`, Order Line normalize→aggregate, milestone timestamps.
 - **Reserved reconcile** — importer diffs Order Lines → RESERVE/RELEASE.
 - **Cancellation Reason** (cancelled_by/category/source, fail-loud).
@@ -144,16 +144,35 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 ---
 
+## Phase 9 — Product Listing / Channel Upload (bounded; ADR 0019)
+
+Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling each Platform's own downloaded bulk-upload file from one channel-agnostic master. **Not a PIM** (ADR 0019). Depends on Phase 4 (Listing / Platform SKU); independent of Phase 6 — **owner picks the slot vs Accounting.**
+
+**Build**
+- **A. Catalogue master extension** — channel-agnostic fields: Product (English name, description, brand) + Variant (package weight + dimensions); plus a **Product Image** stored on R2 (object storage), normalised 1:1.
+- **B. Channel Upload Template fill** — import the Platform's downloaded template (reuse the central pipeline + format-blind reader), map columns by the **machine-key row**, fill only owned columns from the master, emit one filled file per Platform (Lazada one sheet per leaf category, ≤20). Satang→baht on fill (ADR 0015).
+- **C. Listing Coverage** — Variant × Shop matrix + gap list ("not listed on this Shop"), the selection source for "list these missing ones".
+- **D. Existing-listing importer** — import each Platform's "All product" export → match by Master SKU → build ListingVariant + Coverage from reality; unmatched SKU = **fail-loud** (ADR 0005), conflicting per-channel content **never auto-merged**; also populates the `(Shop, Platform SKU) → Variant` resolver.
+- **E. Product Image hosting** — upload/normalise to R2, write its public URL into the template's image columns (Lazada requires a URL, Shopee/TikTok accept one); TikTok image-less rows fall to its native Draft.
+- **Listing Status** (`draft`→`listed`) on ListingVariant — `draft` on fill, `listed` on seller confirm or existing-listing import.
+- **Round-trip** — every seller-owned import (catalogue/prices/coverage) has a paired **export → edit → re-import** (SKU-keyed); Platform mirrors (orders/returns) export read-only.
+- *(F. AI enrichment — draft descriptions / suggest category attributes — explicitly **deferred**; deterministic fill needs no AI.)*
+
+**Exit:** author/import a master → bring in a Platform template → download a per-Platform file with owned columns + image URLs filled → coverage shows what's listed vs missing across all Shops.
+
+---
+
 ## Dependency chain (summary)
 
 ```
 0 (decide-once)
 └─ 1 Catalog+Stock ──┬─ 2 Identity+Shop+Order ──┬─ 3 POS ✅ shippable
                      │                          ├─ 4 Marketplace import
-                     │                          │    └─ 5 Returns
-                     │                          │         └─ 8 Claims ─┐
+                     │                          │    ├─ 5 Returns
+                     │                          │    │    └─ 8 Claims ─┐
+                     │                          │    └─ 9 Listing / Channel Upload (ADR 0019)
                      │                          └─ 6 Accounting ───────┘
                      └────────────────────────────── 7 Promotions
 ```
 
-**The fastest sellable MVP = 0→1→2→3** (end-to-end storefront). marketplace/accounting/promo/claims build on top afterward without touching 1–3.
+**The fastest sellable MVP = 0→1→2→3** (end-to-end storefront). marketplace/accounting/promo/claims/listing build on top afterward without touching 1–3.
