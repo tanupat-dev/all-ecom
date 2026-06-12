@@ -127,6 +127,34 @@ it('holds and reports an unmappable row, fail-loud, while good rows land', funct
         ]]);
 });
 
+it('streams an xlsx even when it is misnamed .xls — the content decides, not the name', function () {
+    FakeImporter::$chunks = [];
+    $file = new UploadedFile(writeTestXlsx([['SKU-1', '5']]), 'Order.return_refund.xls', null, null, true);
+
+    $job = app(StartImport::class)->handle($file, FakeImporter::class);
+
+    expect($job->refresh()->status)->toBe(ImportJobStatus::Completed)
+        ->and(FakeImporter::$chunks)->toBe([[['sku' => 'SKU-1', 'qty' => 5]]]);
+});
+
+it('fails loud with a clear message on a legacy Excel 97-2003 .xls', function () {
+    Queue::fake();
+    $path = sys_get_temp_dir().'/legacy-'.uniqid().'.xls';
+    // The OLE2 compound-document magic that opens every BIFF .xls.
+    file_put_contents($path, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1".str_repeat("\x00", 64));
+    $file = new UploadedFile($path, 'orders.xls', null, null, true);
+    $job = app(StartImport::class)->handle($file, FakeImporter::class);
+
+    try {
+        (new RunImportJob($job->id, $job->tenant_id ?? 0))->handle();
+    } catch (Throwable) {
+        // Rethrown so the queue records the failure.
+    }
+
+    expect($job->refresh()->status)->toBe(ImportJobStatus::Failed)
+        ->and(collect($job->errors)->pluck('message')->implode(' '))->toContain('Save As');
+});
+
 it('marks the ImportJob failed when the file cannot be processed at all', function () {
     Queue::fake();
     $file = new UploadedFile(tempnam(sys_get_temp_dir(), 'not-xlsx'), 'stock.xlsx', null, null, true);

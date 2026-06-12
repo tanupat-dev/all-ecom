@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use OpenSpout\Reader\CSV\Reader as CsvReader;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -88,7 +89,12 @@ class RunImportJob implements ShouldQueue
 
             $this->flush($importer, $chunk, $importJob, $processed, $errors);
         } catch (Throwable $e) {
-            $importJob->update(['status' => ImportJobStatus::Failed]);
+            // A whole-file failure surfaces its reason to the seller too,
+            // not only to the queue log.
+            $importJob->update([
+                'status' => ImportJobStatus::Failed,
+                'errors' => [['row' => 0, 'message' => $e->getMessage()]],
+            ]);
 
             throw $e;
         }
@@ -109,9 +115,7 @@ class RunImportJob implements ShouldQueue
      */
     private function rows(ImportJob $importJob): iterable
     {
-        // The stored name's extension comes from a MIME sniff (a CSV can
-        // land as .txt) — the uploader's original filename is the truth.
-        $reader = $this->readerFor($importJob->original_filename);
+        $reader = $this->readerFor($importJob);
         $reader->open(Storage::disk('local')->path($importJob->stored_path));
 
         try {
@@ -149,12 +153,30 @@ class RunImportJob implements ShouldQueue
     }
 
     /**
-     * Both spreadsheet formats platforms export (TikTok orders are CSV,
-     * the rest xlsx) stream through the same row contract.
+     * Every spreadsheet a platform exports (xlsx / csv — incl. an xlsx
+     * misnamed .xls, which Shopee really ships) streams through the same
+     * row contract. The CONTENT decides the reader, never the name or a
+     * MIME sniff; a genuine Excel 97-2003 .xls is fail-loud with a clear
+     * instruction instead of an obscure zip error (ADR 0005 spirit).
      */
-    private function readerFor(string $filename): CsvReader|XlsxReader
+    private function readerFor(ImportJob $importJob): CsvReader|XlsxReader
     {
-        return strtolower(pathinfo($filename, PATHINFO_EXTENSION)) === 'csv'
+        $magic = (string) file_get_contents(
+            Storage::disk('local')->path($importJob->stored_path),
+            length: 8,
+        );
+
+        if (str_starts_with($magic, "PK\x03\x04")) {
+            return new XlsxReader;
+        }
+
+        if (str_starts_with($magic, "\xD0\xCF\x11\xE0")) {
+            throw new RuntimeException(
+                'ระบบไม่รองรับ — ไฟล์ .xls แบบเก่า (Excel 97-2003): เปิดไฟล์แล้ว Save As เป็น .xlsx ก่อนนำเข้า'
+            );
+        }
+
+        return strtolower(pathinfo($importJob->original_filename, PATHINFO_EXTENSION)) === 'csv'
             ? new CsvReader
             : new XlsxReader;
     }

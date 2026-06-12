@@ -36,7 +36,7 @@ class ShopsTable
                     ->authorize(fn (Shop $record): bool => auth()->user()?->can('importOrders', $record) ?? false)
                     ->schema([
                         FileUpload::make('file')
-                            ->label('ไฟล์ออเดอร์จากแพลตฟอร์ม (.xlsx / .csv)')
+                            ->label('ไฟล์ออเดอร์จากแพลตฟอร์ม (.xlsx / .xls / .csv)')
                             ->storeFiles(false)
                             ->required(),
                     ])
