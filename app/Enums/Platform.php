@@ -2,10 +2,12 @@
 
 namespace App\Enums;
 
+use App\Imports\LazadaAllProductImporter;
 use App\Imports\LazadaOrderImporter;
 use App\Imports\LazadaReturnImporter;
 use App\Imports\MarketplaceOrderImporter;
 use App\Imports\MarketplaceReturnImporter;
+use App\Imports\PlatformFileImporter;
 use App\Imports\ShopeeAllProductImporter;
 use App\Imports\ShopeeOrderImporter;
 use App\Imports\ShopeeReturnImporter;
@@ -81,12 +83,13 @@ enum Platform: string
      * reality and populates the (Shop, Platform SKU) → Variant resolution map
      * (CONTEXT.md: Listing Coverage; ADR 0019).
      *
-     * @return class-string<ShopeeAllProductImporter>|null
+     * @return class-string<PlatformFileImporter>|null
      */
     public function allProductImporter(): ?string
     {
         return match ($this) {
             self::Shopee => ShopeeAllProductImporter::class,
+            self::Lazada => LazadaAllProductImporter::class,
             default => null,
         };
     }
