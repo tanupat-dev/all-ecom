@@ -34,7 +34,7 @@ abstract class MarketplaceReturnImporter extends PlatformFileImporter
 
     /**
      * @param  array<string, mixed>  $row
-     * @return array{return_id: string, return_type: ReturnType, sub_status: ReturnSubStatus, platform_order_id: string, platform_sku: string, qty: int, return_reason: ?string, buyer_note: ?string, refund_amount: ?Money, tracking_number: ?string, requested_at: ?DateTimeInterface, refunded_at: ?DateTimeInterface}
+     * @return array{return_id: string, return_type: ReturnType, sub_status: ReturnSubStatus, platform_order_id: string, platform_sku: string, qty: int, return_reason: ?string, buyer_note: ?string, refund_amount: ?Money, tracking_number: ?string, requested_at: ?DateTimeInterface, refunded_at: ?DateTimeInterface, refunded?: ?bool}
      */
     abstract protected function normalizeReturnRow(array $row, int $rowNumber): array;
 
@@ -110,6 +110,7 @@ abstract class MarketplaceReturnImporter extends PlatformFileImporter
             $tracking = $first['tracking_number'];
             $requestedAt = $first['requested_at'];
             $refundedAt = $first['refunded_at'];
+            $refunded = $first['refunded'] ?? null;
 
             $this->upsertReturn->handle($this->shop(), new NormalizedReturn(
                 platformReturnId: $returnId,
@@ -122,6 +123,7 @@ abstract class MarketplaceReturnImporter extends PlatformFileImporter
                 trackingNumber: is_string($tracking) && $tracking !== '' ? $tracking : null,
                 requestedAt: $requestedAt instanceof DateTimeInterface ? $requestedAt : null,
                 refundedAt: $refundedAt instanceof DateTimeInterface ? $refundedAt : null,
+                refunded: is_bool($refunded) ? $refunded : null,
             ), mergeLines: isset($this->upsertedReturns[$returnId]));
 
             $this->upsertedReturns[$returnId] = true;

@@ -30,5 +30,8 @@ final readonly class NormalizedReturn
         public ?string $trackingNumber = null,
         public ?DateTimeInterface $requestedAt = null,
         public ?DateTimeInterface $refundedAt = null,
+        // null = derive from refundedAt; a platform stating the refund
+        // only as a status (Lazada `Refunded`) passes true explicitly.
+        public ?bool $refunded = null,
     ) {}
 }

@@ -3,6 +3,7 @@
 namespace App\Enums;
 
 use App\Imports\LazadaOrderImporter;
+use App\Imports\LazadaReturnImporter;
 use App\Imports\MarketplaceOrderImporter;
 use App\Imports\MarketplaceReturnImporter;
 use App\Imports\ShopeeOrderImporter;
@@ -66,6 +67,7 @@ enum Platform: string
     {
         return match ($this) {
             self::Shopee => ShopeeReturnImporter::class,
+            self::Lazada => LazadaReturnImporter::class,
             default => null,
         };
     }

@@ -8,17 +8,20 @@ use App\Models\Order;
 
 /**
  * The Order-level Refund Status rollup (CONTEXT.md: Refund Status;
- * ADR 0006): derived on read from the Order's Returns — a Platform-closed
- * case (ยกเลิกการคืน) refunded nothing and never counts. Precedence: an
- * unrefunded case in flight reads รอคืน; otherwise the refunded
- * quantities decide เต็มจำนวน vs บางส่วน per Order Line qty.
+ * ADR 0006): derived on read from the Order's Returns — a case that
+ * closed WITHOUT a refund never counts, while a refund with no goods
+ * (refund_only, terminal at ยกเลิกการคืน on its journey) still does.
+ * Precedence: an unrefunded case in flight reads รอคืน; otherwise the
+ * refunded quantities decide เต็มจำนวน vs บางส่วน per Order Line qty.
  */
 class DeriveRefundStatus
 {
     public function handle(Order $order): RefundStatus
     {
         $returns = $order->returns()
-            ->where('sub_status', '!=', ReturnSubStatus::Closed)
+            ->where(fn ($query) => $query
+                ->where('sub_status', '!=', ReturnSubStatus::Closed)
+                ->orWhere('refunded', true))
             ->with('lines')
             ->get();
 
@@ -26,7 +29,7 @@ class DeriveRefundStatus
             return RefundStatus::None;
         }
 
-        if ($returns->contains(fn ($return): bool => $return->refunded_at === null)) {
+        if ($returns->contains(fn ($return): bool => ! $return->refunded)) {
             return RefundStatus::Pending;
         }
 

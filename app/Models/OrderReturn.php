@@ -31,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $tracking_number
  * @property Carbon|null $requested_at
  * @property Carbon|null $refunded_at
+ * @property bool $refunded
  */
 class OrderReturn extends Model
 {
@@ -41,7 +42,7 @@ class OrderReturn extends Model
 
     protected $fillable = [
         'shop_id', 'platform_return_id', 'ref_order_id', 'return_type', 'sub_status',
-        'return_reason', 'buyer_note', 'refund_amount', 'tracking_number', 'requested_at', 'refunded_at',
+        'return_reason', 'buyer_note', 'refund_amount', 'tracking_number', 'requested_at', 'refunded_at', 'refunded',
     ];
 
     protected function casts(): array
@@ -52,6 +53,7 @@ class OrderReturn extends Model
             'refund_amount' => MoneyCast::class,
             'requested_at' => 'datetime',
             'refunded_at' => 'datetime',
+            'refunded' => 'boolean',
         ];
     }
 

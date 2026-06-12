@@ -59,6 +59,7 @@ class UpsertReturn
                 'tracking_number' => $normalized->trackingNumber,
                 'requested_at' => $normalized->requestedAt,
                 'refunded_at' => $normalized->refundedAt,
+                'refunded' => $normalized->refunded ?? ($normalized->refundedAt !== null),
             ];
 
             if ($return === null) {
