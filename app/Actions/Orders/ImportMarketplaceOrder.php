@@ -17,13 +17,15 @@ use LogicException;
  * platform order as a read-only mirror Order, deduped on
  * (tenant, shop, platform_order_id) — re-importing a snapshot is
  * idempotent (CONTEXT.md: Order). Milestones merge without null-overwrite
- * (ADR 0004).
+ * (ADR 0004); each snapshot's stock effect reconciles through
+ * ReconcileImportedOrderStock (Reserved reconcile, ROADMAP Phase 4).
  */
 class ImportMarketplaceOrder
 {
     public function __construct(
         private readonly ApplyOrderMilestones $applyMilestones,
         private readonly SetOrderStatus $setStatus,
+        private readonly ReconcileImportedOrderStock $reconcileStock,
     ) {}
 
     /**
@@ -54,6 +56,9 @@ class ImportMarketplaceOrder
                 ->where('platform_order_id', $normalized->platformOrderId)
                 ->lockForUpdate()
                 ->first();
+
+            $previousStatus = $order?->status;
+            $previousQty = $order !== null ? $this->qtyByVariant($order) : [];
 
             if ($order === null) {
                 $order = Order::query()->create([
@@ -98,8 +103,38 @@ class ImportMarketplaceOrder
 
             $this->applyMilestones->handle($order, $normalized->milestones);
 
+            $targetQty = $this->qtyByVariant($order);
+
+            if ($mergeLines && $previousStatus !== null) {
+                $appended = [];
+
+                foreach ($targetQty as $variantId => $qty) {
+                    if ($qty - ($previousQty[$variantId] ?? 0) > 0) {
+                        $appended[$variantId] = $qty - ($previousQty[$variantId] ?? 0);
+                    }
+                }
+
+                $this->reconcileStock->handleAppended($order, $appended);
+            } else {
+                $this->reconcileStock->handle($order, $previousStatus, $previousQty, $targetQty);
+            }
+
             return $order->load('lines');
         });
+    }
+
+    /**
+     * @return array<int, int> variant_id => qty across the stored lines
+     */
+    private function qtyByVariant(Order $order): array
+    {
+        $qty = [];
+
+        foreach ($order->lines()->get() as $line) {
+            $qty[$line->variant_id] = ($qty[$line->variant_id] ?? 0) + $line->qty;
+        }
+
+        return $qty;
     }
 
     /**

@@ -1,15 +1,18 @@
 <?php
 
 use App\Actions\Catalog\CreateProduct;
+use App\Actions\Catalog\DefineBundle;
 use App\Actions\Imports\StartImport;
 use App\Actions\Listings\CreateListing;
 use App\Actions\Listings\ResolvePlatformSku;
 use App\Actions\Orders\ImportMarketplaceOrder;
 use App\Actions\Shops\CreateShop;
+use App\Actions\Stock\AppendStockMovement;
 use App\Actions\Tenants\CreateTenant;
 use App\Enums\ImportJobStatus;
 use App\Enums\OrderStatus;
 use App\Enums\Platform;
+use App\Enums\StockAction;
 use App\Imports\Importer;
 use App\Imports\NormalizedOrder;
 use App\Imports\PlatformStatusMapper;
@@ -179,6 +182,145 @@ it('runs end-to-end through the central pipeline, holding unmapped rows while go
         ->and(Order::query()->where('platform_order_id', 'SP-9001')->firstOrFail()->lines)->toHaveCount(2)
         ->and(Order::query()->where('platform_order_id', 'SP-9002')->exists())->toBeFalse()
         ->and(Order::query()->where('platform_order_id', 'SP-9004')->firstOrFail()->total?->satang)->toBe(19900);
+});
+
+/**
+ * Stock-reconcile coverage (#31) — hookVariant()/pools() come from
+ * OrderStockHooksTest. importShop() listings map the catalog SKUs, so a
+ * dedicated stocked Variant is listed here per test.
+ */
+function stockedListedVariant(Shop $shop, string $sku, int $onHand): Variant
+{
+    $variant = hookVariant($sku, $onHand);
+    app(CreateListing::class)->handle($shop, $variant->product()->firstOrFail());
+
+    return $variant;
+}
+
+function normalizedRow(string $orderId, OrderStatus $status, Variant $variant, int $qty = 2): NormalizedOrder
+{
+    return new NormalizedOrder(
+        platformOrderId: $orderId,
+        status: $status,
+        lines: [['variant' => $variant, 'qty' => $qty, 'unit_price' => Money::fromBaht('159')]],
+    );
+}
+
+it('RESERVEs the lines of an order imported at รอแพ็ค', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3001', OrderStatus::AwaitingPack, $a));
+
+    expect(pools($a))->toBe([10, 2]);
+});
+
+it('SHIPs an order first seen already in transit without touching Reserved — it never reserved here', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+    // Someone else's reservation must survive the SHIP (order-aware ledger).
+    app(AppendStockMovement::class)->handle($a, Location::query()->firstOrFail(), StockAction::Reserve, 3);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3002', OrderStatus::InTransit, $a));
+
+    expect(pools($a))->toBe([8, 3]);
+});
+
+it('releases its reservation when a re-import moves รอแพ็ค to shipped', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3003', OrderStatus::AwaitingPack, $a));
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3003', OrderStatus::InTransit, $a));
+
+    expect(pools($a))->toBe([8, 0]);
+});
+
+it('RELEASEs on a re-import showing ยกเลิก — the import-driven Oversell resolution', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3004', OrderStatus::AwaitingPack, $a));
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3004', OrderStatus::Cancelled, $a));
+
+    expect(pools($a))->toBe([10, 0]);
+});
+
+it('reserves past On-Hand instead of blocking — negative Available is the Oversell signal', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 1);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3005', OrderStatus::AwaitingPack, $a, qty: 3));
+
+    expect(pools($a))->toBe([1, 3]);
+});
+
+it('compensates Reserved when a re-imported snapshot changed the lines of a รอแพ็ค order', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+    $b = stockedListedVariant($shop, 'MK-2', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3006', OrderStatus::AwaitingPack, $a, qty: 2));
+    // The buyer dropped a unit of A and the platform added B (partial
+    // cancel + re-import): +1 RESERVE B, -1 RELEASE A.
+    app(ImportMarketplaceOrder::class)->handle($shop, new NormalizedOrder(
+        platformOrderId: 'SP-3006',
+        status: OrderStatus::AwaitingPack,
+        lines: [
+            ['variant' => $a, 'qty' => 1, 'unit_price' => Money::fromBaht('159')],
+            ['variant' => $b, 'qty' => 1, 'unit_price' => Money::fromBaht('159')],
+        ],
+    ));
+
+    expect(pools($a))->toBe([10, 1])
+        ->and(pools($b))->toBe([10, 1]);
+});
+
+it('moves no stock for a post-pack line change — the goods already left', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3007', OrderStatus::InTransit, $a, qty: 2));
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3007', OrderStatus::Delivered, $a, qty: 1));
+
+    // The mirror reflects the platform's line truth, the ledger is untouched.
+    expect(pools($a))->toBe([8, 0])
+        ->and(Order::query()->where('platform_order_id', 'SP-3007')->firstOrFail()->lines->first()?->qty)->toBe(1);
+});
+
+it('expands an imported bundle line into component movements', function () {
+    $shop = importShop();
+    $soap = hookVariant('SOAP', 10);
+    $bundle = stockedListedVariant($shop, 'SET-1', 0);
+    app(DefineBundle::class)->handle($bundle, [[$soap, 2]]);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3008', OrderStatus::AwaitingPack, $bundle, qty: 3));
+
+    expect(pools($soap))->toBe([10, 6])
+        ->and(pools($bundle))->toBe([0, 0]);
+});
+
+it('RESERVEs the appended lines when a chunk-split รอแพ็ค order merges', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+    $b = stockedListedVariant($shop, 'MK-2', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3009', OrderStatus::AwaitingPack, $a, qty: 1));
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3009', OrderStatus::AwaitingPack, $b, qty: 2), mergeLines: true);
+
+    expect(pools($a))->toBe([10, 1])
+        ->and(pools($b))->toBe([10, 2]);
+});
+
+it('moves nothing for a รอชำระ order until it reaches รอแพ็ค', function () {
+    $shop = importShop();
+    $a = stockedListedVariant($shop, 'MK-1', 10);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3010', OrderStatus::PendingPayment, $a));
+    expect(pools($a))->toBe([10, 0]);
+
+    app(ImportMarketplaceOrder::class)->handle($shop, normalizedRow('SP-3010', OrderStatus::AwaitingPack, $a));
+    expect(pools($a))->toBe([10, 2]);
 });
 
 it('re-imports the same platform order id as an update, never a duplicate', function () {
