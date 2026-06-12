@@ -28,6 +28,19 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Product Images Disk
+    |--------------------------------------------------------------------------
+    |
+    | Selects which disk product images are stored on. Defaults to the local
+    | 'product-images' disk below. Set PRODUCT_IMAGES_DISK to an R2/S3 disk
+    | name in production once the bucket is provisioned (#48).
+    |
+    */
+
+    'product_images_disk' => env('PRODUCT_IMAGES_DISK', 'product-images'),
+
     'disks' => [
 
         'local' => [
@@ -42,6 +55,19 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Local public-style disk for product images (ADR 0019, Issue #47).
+        // Point PRODUCT_IMAGES_DISK at an R2/S3-compatible disk in production
+        // once the bucket is provisioned (#48). The driver choice here is the
+        // default only — any disk name can be selected via the env var above.
+        'product-images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/product-images'),
+            'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage/product-images',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

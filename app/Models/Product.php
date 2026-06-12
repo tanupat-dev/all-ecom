@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Models\Concerns\TracksCreatedBy;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A sellable item in the master catalog (CONTEXT.md: Product). The sellable
@@ -20,6 +22,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $english_name
  * @property string|null $description
  * @property string|null $brand
+ *
+ * Relations:
+ * @property-read Collection<int, Variant> $variants
+ * @property-read Collection<int, ProductImage> $images
  */
 class Product extends Model
 {
@@ -34,5 +40,27 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(Variant::class);
+    }
+
+    /**
+     * All images for this product, ordered by sort_order ascending.
+     * Channel-agnostic — shared across every Platform (ADR 0019, Issue #47).
+     *
+     * @return HasMany<ProductImage, $this>
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order');
+    }
+
+    /**
+     * The primary image — the one with the lowest sort_order — or null if
+     * the product has no images yet.
+     *
+     * @return HasOne<ProductImage, $this>
+     */
+    public function primaryImage(): HasOne
+    {
+        return $this->hasOne(ProductImage::class)->orderBy('sort_order');
     }
 }
