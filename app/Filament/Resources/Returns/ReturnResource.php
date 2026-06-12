@@ -13,7 +13,9 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Read-only Return list (ADR 0006): returns enter via import and move via
@@ -44,6 +46,20 @@ class ReturnResource extends Resource
                 ->tooltip(fn (OrderReturn $record): ?string => $record->buyer_note)
                 ->limit(30),
             TextColumn::make('requested_at')->label('ยื่นคำขอเมื่อ')->dateTime()->sortable(),
+            // The stale-Return flag (ADR 0006): prompt the seller to
+            // re-import the latest return file or close the case manually.
+            TextColumn::make('stale')
+                ->label('')
+                ->badge()
+                ->color('warning')
+                ->state(fn (OrderReturn $record): string => $record->isStale() ? 'เกินกำหนดผู้ซื้อส่งคืน' : ''),
+        ])->filters([
+            Filter::make('stale')
+                ->label('เกินกำหนดผู้ซื้อส่งคืน')
+                ->query(fn (Builder $query): Builder => $query->whereIn(
+                    'id',
+                    OrderReturn::query()->stale()->select('id'),
+                )),
         ])->recordActions([
             // Stock comes back ONLY on the physical scan (CONTEXT.md:
             // Inbound Scan) — the condition check routes damaged units.

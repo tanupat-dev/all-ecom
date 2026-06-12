@@ -73,4 +73,15 @@ enum Platform: string
             default => null,
         };
     }
+
+    /**
+     * Days the Platform gives the buyer to ship an approved return before
+     * auto-closing the case — the stale-Return flag's window (ADR 0006).
+     * Only TikTok's is documented; null = no flag until the value is
+     * confirmed, never a guessed default (ADR 0005).
+     */
+    public function buyerShipWindowDays(): ?int
+    {
+        return $this === self::Tiktok ? 5 : null;
+    }
 }
