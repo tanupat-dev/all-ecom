@@ -1,24 +1,14 @@
 <?php
 
-use App\Actions\Catalog\CreateProduct;
 use App\Actions\Pos\CheckoutPosSale;
 use App\Actions\Pos\CloseShift;
-use App\Actions\Pos\OpenShift;
-use App\Actions\Shops\CreateShop;
-use App\Actions\Stock\AppendStockMovement;
 use App\Actions\Tenants\CreateTenant;
 use App\Enums\OrderStatus;
-use App\Enums\Platform;
-use App\Enums\StockAction;
 use App\Enums\TenderType;
 use App\Models\AuditLog;
-use App\Models\Location;
 use App\Models\Payment;
-use App\Models\Register;
-use App\Models\Shift;
 use App\Models\StockBalance;
 use App\Models\User;
-use App\Models\Variant;
 use App\Support\Money;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -39,25 +29,7 @@ afterEach(function () {
     app(TenantContext::class)->forget();
 });
 
-function openPosShift(): Shift
-{
-    app(CreateShop::class)->handle('หน้าร้าน', Platform::Pos, Location::query()->firstOrFail());
-
-    return app(OpenShift::class)->handle(Register::query()->firstOrFail(), Money::fromBaht('1000'));
-}
-
-function posVariant(string $sku, string $priceBaht, int $onHand = 10): Variant
-{
-    $variant = app(CreateProduct::class)
-        ->handle("สินค้า {$sku}", [['master_sku' => $sku, 'list_price' => Money::fromBaht($priceBaht)]])
-        ->variants->firstOrFail();
-
-    app(AppendStockMovement::class)->handle(
-        $variant, Location::query()->firstOrFail(), StockAction::Receive, $onHand,
-    );
-
-    return $variant;
-}
+// openPosShift() / posVariant() live in tests/Helpers/PosHelpers.php.
 
 it('sells: order closes สำเร็จ, ships stock, takes payment, gets receipt_no 1', function () {
     $shift = openPosShift();
