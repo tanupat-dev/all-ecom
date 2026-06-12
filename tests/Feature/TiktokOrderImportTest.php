@@ -18,6 +18,8 @@ use App\Support\Money;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
 
 use function Pest\Laravel\actingAs;
 
@@ -48,15 +50,13 @@ function tiktokShop(): Shop
 }
 
 /**
- * The real export's 63 headers (ref doc/tiktok/All order tiktok.csv) with
- * synthetic rows. TikTok pads timestamp cells with a trailing tab — the
- * fixture reproduces that quirk.
+ * The real export's 63 headers (ref doc/tiktok/All order tiktok.csv).
  *
- * @param  list<array<string, string>>  $rows  header => value, unset = ''
+ * @return list<string>
  */
-function writeTiktokCsv(array $rows): string
+function tiktokOrderHeaders(): array
 {
-    $headers = [
+    return [
         'Order ID', 'Order Status', 'Order Substatus', 'Cancelation/Return Type', 'Normal or Pre-order',
         'SKU ID', 'Seller SKU', 'Product Name', 'Variation', 'Quantity', 'Sku Quantity of return',
         'SKU Unit Original Price', 'SKU Subtotal Before Discount', 'SKU Platform Discount',
@@ -73,7 +73,17 @@ function writeTiktokCsv(array $rows): string
         'Tax Info - Email', 'Tax Info - Phone Number', 'Tax Info - Registered Address',
         'Tax Info - Address Type',
     ];
+}
 
+/**
+ * Synthetic rows under the real headers. TikTok pads timestamp cells with
+ * a trailing tab — the fixture reproduces that quirk.
+ *
+ * @param  list<array<string, string>>  $rows  header => value, unset = ''
+ */
+function writeTiktokCsv(array $rows): string
+{
+    $headers = tiktokOrderHeaders();
     $path = sys_get_temp_dir().'/tiktok-import-test-'.uniqid().'.csv';
     $handle = fopen($path, 'w') ?: throw new RuntimeException("Cannot open [{$path}]");
     fputcsv($handle, $headers);
@@ -86,6 +96,32 @@ function writeTiktokCsv(array $rows): string
     }
 
     fclose($handle);
+
+    return $path;
+}
+
+/**
+ * The same export as xlsx — whichever format the platform serves that
+ * day, every importer must take it.
+ *
+ * @param  list<array<string, string>>  $rows
+ */
+function writeTiktokXlsx(array $rows): string
+{
+    $headers = tiktokOrderHeaders();
+    $path = sys_get_temp_dir().'/tiktok-import-test-'.uniqid().'.xlsx';
+    $writer = new Writer;
+    $writer->openToFile($path);
+    $writer->addRow(Row::fromValues($headers));
+
+    foreach ($rows as $row) {
+        $writer->addRow(Row::fromValues(array_map(
+            static fn (string $header): string => $row[$header] ?? '',
+            $headers,
+        )));
+    }
+
+    $writer->close();
 
     return $path;
 }
@@ -103,6 +139,24 @@ it('maps every observed TikTok substatus', function () {
 it('fails loud on a TikTok substatus it has never seen', function () {
     app(TiktokOrderImporter::class)->map('คืนสินค้าบางส่วน');
 })->throws(UnmappedPlatformStatusException::class, 'ระบบไม่รองรับ');
+
+it('imports the same TikTok export delivered as xlsx — the format never matters to the importer', function () {
+    $shop = tiktokShop();
+
+    $file = new UploadedFile(writeTiktokXlsx([
+        [
+            'Order ID' => '579xlsx1', 'Order Status' => 'เสร็จสมบูรณ์', 'Order Substatus' => 'เสร็จสมบูรณ์',
+            'Seller SKU' => 'TS-RED-M', 'Quantity' => '1',
+            'SKU Subtotal Before Discount' => '199', 'SKU Seller Discount' => '0',
+            'Created Time' => "05/06/2026 10:21:10\t",
+        ],
+    ]), 'All order tiktok.xlsx', null, null, true);
+
+    $job = app(StartImport::class)->handle($file, TiktokOrderImporter::class, ['shop_id' => $shop->id]);
+
+    expect($job->refresh()->status)->toBe(ImportJobStatus::Completed)
+        ->and(Order::query()->where('platform_order_id', '579xlsx1')->firstOrFail()->total?->satang)->toBe(19900);
+});
 
 it('imports a TikTok CSV: exact subtotals win when the seller discount does not divide per unit', function () {
     $shop = tiktokShop();

@@ -50,14 +50,13 @@ function shopeeShop(): Shop
 }
 
 /**
- * The real export's 59 Thai headers (ref doc/shopee/All order shopee.xlsx)
- * with synthetic rows — no real buyer data is ever committed.
+ * The real export's 59 Thai headers (ref doc/shopee/All order shopee.xlsx).
  *
- * @param  list<array<string, string>>  $rows  header => value, unset = ''
+ * @return list<string>
  */
-function writeShopeeXlsx(array $rows): string
+function shopeeOrderHeaders(): array
 {
-    $headers = [
+    return [
         'หมายเลขคำสั่งซื้อ', 'สถานะการสั่งซื้อ', 'Hot Listing', 'เหตุผลในการยกเลิกคำสั่งซื้อ',
         'สถานะการคืนเงินหรือคืนสินค้า', 'ชื่อผู้ใช้ (ผู้ซื้อ)', 'วันที่ทำการสั่งซื้อ',
         'เวลาการชำระสินค้า', 'ช่องทางการชำระเงิน', 'ช่องทางการชำระเงิน (รายละเอียด)',
@@ -76,7 +75,16 @@ function writeShopeeXlsx(array $rows): string
         'หมายเหตุจากผู้ซื้อ', 'ที่อยู่ในการจัดส่ง', 'ประเทศ', 'จังหวัด', 'เขต/อำเภอ', 'รหัสไปรษณีย์',
         'ประเภทคำสั่งซื้อ', 'เวลาที่ทำการสั่งซื้อสำเร็จ', 'บันทึก',
     ];
+}
 
+/**
+ * Synthetic rows under the real headers — no real buyer data committed.
+ *
+ * @param  list<array<string, string>>  $rows  header => value, unset = ''
+ */
+function writeShopeeXlsx(array $rows): string
+{
+    $headers = shopeeOrderHeaders();
     $path = sys_get_temp_dir().'/shopee-import-test-'.uniqid().'.xlsx';
     $writer = new Writer;
     $writer->openToFile($path);
@@ -90,6 +98,31 @@ function writeShopeeXlsx(array $rows): string
     }
 
     $writer->close();
+
+    return $path;
+}
+
+/**
+ * The same export as CSV — platforms fall back to CSV when their Excel
+ * export breaks; every importer must take both.
+ *
+ * @param  list<array<string, string>>  $rows
+ */
+function writeShopeeCsv(array $rows): string
+{
+    $headers = shopeeOrderHeaders();
+    $path = sys_get_temp_dir().'/shopee-import-test-'.uniqid().'.csv';
+    $handle = fopen($path, 'w') ?: throw new RuntimeException("Cannot open [{$path}]");
+    fputcsv($handle, $headers);
+
+    foreach ($rows as $row) {
+        fputcsv($handle, array_map(
+            static fn (string $header): string => $row[$header] ?? '',
+            $headers,
+        ));
+    }
+
+    fclose($handle);
 
     return $path;
 }
@@ -180,6 +213,26 @@ it('holds a row whose Platform SKU has no mapping while the rest of the file lan
         ->and(collect($job->errors)->pluck('message')->implode(' '))->toContain('NOT-MAPPED')
         ->and(Order::query()->where('platform_order_id', '2606OK')->exists())->toBeTrue()
         ->and(Order::query()->where('platform_order_id', '2606BAD')->exists())->toBeFalse();
+});
+
+it('imports the same Shopee export delivered as CSV — when the platform cannot serve Excel', function () {
+    $shop = shopeeShop();
+
+    $file = new UploadedFile(writeShopeeCsv([
+        [
+            'หมายเลขคำสั่งซื้อ' => '2606CSV1', 'สถานะการสั่งซื้อ' => 'สำเร็จแล้ว',
+            'วันที่ทำการสั่งซื้อ' => '2026-05-06 00:01',
+            'เลขอ้างอิง SKU (SKU Reference No.)' => 'TS-RED-M', 'ราคาขาย' => '159', 'จำนวน' => '2',
+        ],
+    ]), 'orders.csv', null, null, true);
+
+    $job = app(StartImport::class)->handle($file, ShopeeOrderImporter::class, ['shop_id' => $shop->id]);
+
+    $order = Order::query()->where('platform_order_id', '2606CSV1')->firstOrFail();
+
+    expect($job->refresh()->status)->toBe(ImportJobStatus::Completed)
+        ->and($order->status)->toBe(OrderStatus::Completed)
+        ->and($order->total?->satang)->toBe(31800);
 });
 
 it('gates the order import on order.import via the Shop policy', function () {

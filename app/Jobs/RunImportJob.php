@@ -119,8 +119,9 @@ class RunImportJob implements ShouldQueue
         $reader->open(Storage::disk('local')->path($importJob->stored_path));
 
         try {
+            $headers = null;
+
             foreach ($reader->getSheetIterator() as $sheet) {
-                $headers = null;
                 $rowNumber = 0;
 
                 foreach ($sheet->getRowIterator() as $row) {
@@ -147,17 +148,26 @@ class RunImportJob implements ShouldQueue
                 // The pipeline contract is single-sheet files.
                 break;
             }
+
+            if ($headers === null) {
+                // An empty/unreadable file must not "complete" silently.
+                throw new RuntimeException('ระบบไม่รองรับ — ไฟล์ว่างหรือไม่มีหัวตาราง');
+            }
         } finally {
             $reader->close();
         }
     }
 
     /**
-     * Every spreadsheet a platform exports (xlsx / csv — incl. an xlsx
-     * misnamed .xls, which Shopee really ships) streams through the same
-     * row contract. The CONTENT decides the reader, never the name or a
-     * MIME sniff; a genuine Excel 97-2003 .xls is fail-loud with a clear
-     * instruction instead of an obscure zip error (ADR 0005 spirit).
+     * Every export streams through the same row contract regardless of
+     * what the platform happened to serve that day — xlsx, an xlsx
+     * misnamed .xls (Shopee ships this), or CSV (platforms fall back to
+     * CSV when their Excel export breaks). The CONTENT decides the
+     * reader, never the name or a MIME sniff: a zip header is xlsx, a
+     * genuine Excel 97-2003 OLE2 file is fail-loud with a clear
+     * instruction (ADR 0005 spirit), and anything else reads as
+     * delimited text — every importer is format-blind, it only ever
+     * sees header-keyed rows.
      */
     private function readerFor(ImportJob $importJob): CsvReader|XlsxReader
     {
@@ -176,9 +186,7 @@ class RunImportJob implements ShouldQueue
             );
         }
 
-        return strtolower(pathinfo($importJob->original_filename, PATHINFO_EXTENSION)) === 'csv'
-            ? new CsvReader
-            : new XlsxReader;
+        return new CsvReader;
     }
 
     /**
