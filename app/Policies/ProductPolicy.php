@@ -34,4 +34,23 @@ class ProductPolicy
     {
         return $user->checkPermissionTo('product.edit');
     }
+
+    /**
+     * Gate for the catalogue-master export (download xlsx of all Products +
+     * Variants with their listing fields). Requires view access — reading
+     * the master data, not editing it.
+     */
+    public function exportCatalogueMaster(User $user): bool
+    {
+        return $user->checkPermissionTo('product.view');
+    }
+
+    /**
+     * Gate for the catalogue-master re-import (update Product/Variant master
+     * fields from an edited xlsx). Requires edit access — writes to the DB.
+     */
+    public function importCatalogueMaster(User $user): bool
+    {
+        return $user->checkPermissionTo('product.edit');
+    }
 }
