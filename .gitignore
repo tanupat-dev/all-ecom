@@ -22,9 +22,14 @@ Homestead.yaml
 # Editor / OS
 /.idea
 /.vscode
+/.nova
+/.codex
+/.cursor/
 *.swp
 .DS_Store
 Thumbs.db
+_ide_helper.php
+*.log
 
 # Build / coverage
 /coverage
@@ -33,3 +38,6 @@ Thumbs.db
 # Reference platform exports — REAL data (order ids, buyer PII, financials).
 # Kept locally as importer reference; never version-controlled (see all-ecom-security-check).
 /ref doc/
+
+# Local dev DB artifacts
+/database/*.sqlite*
