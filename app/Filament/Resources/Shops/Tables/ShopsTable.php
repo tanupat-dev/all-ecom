@@ -81,6 +81,36 @@ class ShopsTable
                             ->success()
                             ->send();
                     }),
+                // Rebuild Listing Coverage from Platform reality (ROADMAP
+                // Phase 9 item D; ADR 0019): creates/updates Listing +
+                // ListingVariant rows with listing_status = listed and
+                // populates the (Shop, Platform SKU) → Variant resolver.
+                Action::make('importAllProducts')
+                    ->label('นำเข้าสินค้าทั้งหมด')
+                    ->icon('heroicon-o-cube')
+                    ->visible(fn (Shop $record): bool => $record->platform->allProductImporter() !== null)
+                    ->authorize(fn (Shop $record): bool => auth()->user()?->can('importOrders', $record) ?? false)
+                    ->schema([
+                        FileUpload::make('file')
+                            ->label('ไฟล์ All product จากแพลตฟอร์ม (.xlsx / .xls / .csv)')
+                            ->storeFiles(false)
+                            ->required(),
+                    ])
+                    ->action(function (Shop $record, array $data): void {
+                        $file = $data['file'] ?? null;
+                        $importer = $record->platform->allProductImporter();
+
+                        if (! $file instanceof UploadedFile || $importer === null) {
+                            throw new InvalidArgumentException('An all-product import needs the platform export file.');
+                        }
+
+                        $job = app(StartImport::class)->handle($file, $importer, ['shop_id' => $record->id]);
+
+                        Notification::make()
+                            ->title("รับไฟล์แล้ว — กำลังนำเข้า (งาน #{$job->id})")
+                            ->success()
+                            ->send();
+                    }),
                 // Generic (platform_sku, qty) file for MVP — the exact
                 // per-platform upload template follows once `ref doc/` is
                 // restored (#37).

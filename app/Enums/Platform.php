@@ -6,6 +6,7 @@ use App\Imports\LazadaOrderImporter;
 use App\Imports\LazadaReturnImporter;
 use App\Imports\MarketplaceOrderImporter;
 use App\Imports\MarketplaceReturnImporter;
+use App\Imports\ShopeeAllProductImporter;
 use App\Imports\ShopeeOrderImporter;
 use App\Imports\ShopeeReturnImporter;
 use App\Imports\TiktokOrderImporter;
@@ -70,6 +71,22 @@ enum Platform: string
             self::Shopee => ShopeeReturnImporter::class,
             self::Lazada => LazadaReturnImporter::class,
             self::Tiktok => TiktokReturnImporter::class,
+            default => null,
+        };
+    }
+
+    /**
+     * The existing-listing ("All product") Importer for this marketplace
+     * (ROADMAP Phase 9 item D): rebuilds Listing Coverage from Platform
+     * reality and populates the (Shop, Platform SKU) → Variant resolution map
+     * (CONTEXT.md: Listing Coverage; ADR 0019).
+     *
+     * @return class-string<ShopeeAllProductImporter>|null
+     */
+    public function allProductImporter(): ?string
+    {
+        return match ($this) {
+            self::Shopee => ShopeeAllProductImporter::class,
             default => null,
         };
     }
