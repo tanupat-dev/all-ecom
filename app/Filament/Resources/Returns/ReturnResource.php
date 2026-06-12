@@ -65,7 +65,13 @@ class ReturnResource extends Resource
                             ->all()),
                 ])
                 ->action(function (OrderReturn $record, array $data): void {
-                    $damaged = array_map(intval(...), (array) ($data['damaged'] ?? []));
+                    $damaged = [];
+
+                    foreach ((array) ($data['damaged'] ?? []) as $id) {
+                        if (is_numeric($id)) {
+                            $damaged[] = (int) $id;
+                        }
+                    }
 
                     app(RecordInboundScan::class)->handle($record, $damaged);
                 }),
