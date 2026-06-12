@@ -55,6 +55,32 @@ class ShopsTable
                             ->success()
                             ->send();
                     }),
+                Action::make('importReturns')
+                    ->label('นำเข้าการคืนสินค้า')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->visible(fn (Shop $record): bool => $record->platform->returnImporter() !== null)
+                    ->authorize(fn (Shop $record): bool => auth()->user()?->can('importOrders', $record) ?? false)
+                    ->schema([
+                        FileUpload::make('file')
+                            ->label('ไฟล์คืนสินค้าจากแพลตฟอร์ม (.xlsx / .xls / .csv)')
+                            ->storeFiles(false)
+                            ->required(),
+                    ])
+                    ->action(function (Shop $record, array $data): void {
+                        $file = $data['file'] ?? null;
+                        $importer = $record->platform->returnImporter();
+
+                        if (! $file instanceof UploadedFile || $importer === null) {
+                            throw new InvalidArgumentException('A return import needs the platform export file.');
+                        }
+
+                        $job = app(StartImport::class)->handle($file, $importer, ['shop_id' => $record->id]);
+
+                        Notification::make()
+                            ->title("รับไฟล์แล้ว — กำลังนำเข้า (งาน #{$job->id})")
+                            ->success()
+                            ->send();
+                    }),
                 // Generic (platform_sku, qty) file for MVP — the exact
                 // per-platform upload template follows once `ref doc/` is
                 // restored (#37).

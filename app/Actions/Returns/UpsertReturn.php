@@ -17,7 +17,12 @@ use InvalidArgumentException;
  */
 class UpsertReturn
 {
-    public function handle(Shop $shop, NormalizedReturn $normalized): OrderReturn
+    /**
+     * $mergeLines: a return importer whose case's rows were split across
+     * two pipeline chunks passes true for the later part — the lines
+     * accumulate instead of replacing. A fresh occurrence always replaces.
+     */
+    public function handle(Shop $shop, NormalizedReturn $normalized, bool $mergeLines = false): OrderReturn
     {
         if ($normalized->lines === []) {
             throw new InvalidArgumentException('A Return needs at least one Return Line.');
@@ -29,7 +34,7 @@ class UpsertReturn
             }
         }
 
-        return DB::transaction(function () use ($shop, $normalized): OrderReturn {
+        return DB::transaction(function () use ($shop, $normalized, $mergeLines): OrderReturn {
             $return = OrderReturn::query()
                 ->where('shop_id', $shop->id)
                 ->where('platform_return_id', $normalized->platformReturnId)
@@ -60,14 +65,28 @@ class UpsertReturn
                 $return = OrderReturn::query()->create($attributes);
             } else {
                 $return->update($attributes);
-                $return->lines()->delete();
+
+                if (! $mergeLines) {
+                    $return->lines()->delete();
+                }
             }
 
+            // Per-unit exports (Lazada) repeat an Order Line across rows —
+            // quantities aggregate per line (ADR 0006).
+            $qtyByOrderLine = [];
+
             foreach ($normalized->lines as $line) {
-                $return->lines()->create([
-                    'ref_order_line_id' => $line['order_line']->id,
-                    'qty' => $line['qty'],
-                ]);
+                $qtyByOrderLine[$line['order_line']->id] = ($qtyByOrderLine[$line['order_line']->id] ?? 0) + $line['qty'];
+            }
+
+            foreach ($qtyByOrderLine as $orderLineId => $qty) {
+                $existing = $return->lines()->where('ref_order_line_id', $orderLineId)->first();
+
+                if ($existing !== null) {
+                    $existing->update(['qty' => $existing->qty + $qty]);
+                } else {
+                    $return->lines()->create(['ref_order_line_id' => $orderLineId, 'qty' => $qty]);
+                }
             }
 
             return $return->load('lines');

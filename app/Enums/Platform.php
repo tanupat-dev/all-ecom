@@ -4,7 +4,9 @@ namespace App\Enums;
 
 use App\Imports\LazadaOrderImporter;
 use App\Imports\MarketplaceOrderImporter;
+use App\Imports\MarketplaceReturnImporter;
 use App\Imports\ShopeeOrderImporter;
+use App\Imports\ShopeeReturnImporter;
 use App\Imports\TiktokOrderImporter;
 
 /**
@@ -50,6 +52,20 @@ enum Platform: string
             self::Shopee => ShopeeOrderImporter::class,
             self::Lazada => LazadaOrderImporter::class,
             self::Tiktok => TiktokOrderImporter::class,
+            default => null,
+        };
+    }
+
+    /**
+     * The return-export Importer for this marketplace (ROADMAP Phase 5);
+     * null until the platform's importer ships (#43 Lazada, #44 TikTok).
+     *
+     * @return class-string<MarketplaceReturnImporter>|null
+     */
+    public function returnImporter(): ?string
+    {
+        return match ($this) {
+            self::Shopee => ShopeeReturnImporter::class,
             default => null,
         };
     }

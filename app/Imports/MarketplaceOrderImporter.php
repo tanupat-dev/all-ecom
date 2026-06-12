@@ -12,9 +12,7 @@ use App\Models\ImportJob;
 use App\Models\Shop;
 use App\Models\Variant;
 use App\Support\Money;
-use DateTimeImmutable;
 use DateTimeInterface;
-use DateTimeZone;
 use LogicException;
 
 /**
@@ -26,12 +24,8 @@ use LogicException;
  * mapping table (map). The target Shop arrives via the ImportJob context
  * (shop_id) — the export file itself cannot say which Shop it belongs to.
  */
-abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, PlatformStatusMapper
+abstract class MarketplaceOrderImporter extends PlatformFileImporter implements PlatformStatusMapper
 {
-    private ?ImportJob $importJob = null;
-
-    private ?Shop $shop = null;
-
     /** @var array<string, true> */
     private array $upsertedOrders = [];
 
@@ -52,11 +46,6 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
      * @return array{order_id: string, native_status: string, platform_sku: string, qty: int, unit_price: string, milestones: array<string, DateTimeInterface|null>, tracking_number: ?string, buyer_name: ?string, line_total?: Money, cancelled_by?: ?CancelledBy, cancel_reason_category?: ?CancelReasonCategory, cancel_reason_source?: ?string}
      */
     abstract protected function normalizeRow(array $row, int $rowNumber): array;
-
-    public function setImportJob(ImportJob $importJob): void
-    {
-        $this->importJob = $importJob;
-    }
 
     public function mapRow(array $row, int $rowNumber): array
     {
@@ -169,66 +158,5 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
     protected function consolidateOrder(array $rows): array
     {
         return ['header' => $rows[0], 'lines' => $rows];
-    }
-
-    /**
-     * The timestamp formats this platform's export writes, tried in order.
-     *
-     * @return non-empty-list<string>
-     */
-    protected function dateFormats(): array
-    {
-        return ['Y-m-d H:i:s', 'Y-m-d H:i'];
-    }
-
-    /**
-     * Platform exports carry Thai wall-clock timestamps; we store UTC
-     * (ROADMAP Phase 0: Time). An unparseable non-empty value is fail-loud,
-     * never guessed (ADR 0005).
-     */
-    protected function parseBangkokTime(mixed $value, string $column): ?DateTimeImmutable
-    {
-        $text = is_scalar($value) ? trim((string) $value) : '';
-
-        if ($text === '') {
-            return null;
-        }
-
-        $bangkok = new DateTimeZone('Asia/Bangkok');
-
-        foreach ($this->dateFormats() as $format) {
-            $parsed = DateTimeImmutable::createFromFormat($format, $text, $bangkok);
-
-            if ($parsed !== false) {
-                return $parsed->setTimezone(new DateTimeZone('UTC'));
-            }
-        }
-
-        throw new RowImportException("ระบบไม่รองรับ — unparseable timestamp [{$text}] in [{$column}].");
-    }
-
-    /**
-     * @param  array<string, mixed>  $row
-     */
-    protected function cell(array $row, string $header): string
-    {
-        $value = $row[$header] ?? null;
-
-        return is_scalar($value) ? trim((string) $value) : '';
-    }
-
-    protected function shop(): Shop
-    {
-        if ($this->shop !== null) {
-            return $this->shop;
-        }
-
-        $shopId = $this->importJob?->context['shop_id'] ?? null;
-
-        if (! is_numeric($shopId)) {
-            throw new LogicException('A marketplace order import needs a shop_id in its ImportJob context.');
-        }
-
-        return $this->shop = Shop::query()->findOrFail((int) $shopId);
     }
 }
