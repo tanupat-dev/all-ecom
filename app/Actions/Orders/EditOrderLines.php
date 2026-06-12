@@ -27,7 +27,7 @@ class EditOrderLines
     ) {}
 
     /**
-     * @param  non-empty-list<array{variant: Variant, qty: int, unit_price: Money}>  $lines
+     * @param  non-empty-list<array{variant: Variant, qty: int, unit_price: Money, discount?: Money}>  $lines
      */
     public function handle(Order $order, array $lines): Order
     {
@@ -67,18 +67,20 @@ class EditOrderLines
             $total = Money::fromSatang(0);
 
             foreach ($lines as $line) {
-                $lineTotal = $line['unit_price']->multiply($line['qty']);
+                $discount = $line['discount'] ?? Money::fromSatang(0);
+                $lineTotal = $line['unit_price']->multiply($line['qty'])->subtract($discount);
                 $total = $total->add($lineTotal);
 
                 $order->lines()->create([
                     'variant_id' => $line['variant']->id,
                     'qty' => $line['qty'],
                     'unit_price' => $line['unit_price'],
+                    'discount' => $discount,
                     'line_total' => $lineTotal,
                 ]);
             }
 
-            $order->update(['total' => $total]);
+            $order->update(['total' => $total->subtract($order->cart_discount ?? Money::fromSatang(0))]);
 
             return $order->load('lines');
         });

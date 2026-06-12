@@ -5,9 +5,11 @@ namespace App\Actions\Pos;
 use App\Actions\Audit\RecordAuditLog;
 use App\Actions\Orders\ApplyOrderMilestones;
 use App\Actions\Orders\CreateOrder;
+use App\Actions\Orders\EditOrderLines;
 use App\Actions\Orders\SetOrderStatus;
 use App\Actions\Orders\ShipOrderStock;
 use App\Enums\OrderStatus;
+use App\Enums\PlatformType;
 use App\Enums\ShiftStatus;
 use App\Enums\TenderType;
 use App\Models\Order;
@@ -34,7 +36,9 @@ use LogicException;
 class CheckoutPosSale
 {
     public function __construct(
+        private readonly ResolvePosCart $cart,
         private readonly CreateOrder $createOrder,
+        private readonly EditOrderLines $editLines,
         private readonly SetOrderStatus $setStatus,
         private readonly ApplyOrderMilestones $milestones,
         private readonly ShipOrderStock $ship,
@@ -43,10 +47,14 @@ class CheckoutPosSale
     ) {}
 
     /**
+     * Pass $resume to complete a Parked Sale (CONTEXT.md: Parked Sale) —
+     * the held order's lines are replaced by the current cart and the
+     * same order closes, so no ยกเลิก noise enters reporting.
+     *
      * @param  list<array{variant: Variant, qty: int, discount_baht?: Money, discount_percent?: float}>  $items
      * @param  list<array{tender: TenderType, amount: Money}>  $tenders
      */
-    public function handle(Shift $shift, array $items, array $tenders, ?Money $cartDiscount = null): Order
+    public function handle(Shift $shift, array $items, array $tenders, ?Money $cartDiscount = null, ?Order $resume = null): Order
     {
         if ($shift->status !== ShiftStatus::Open) {
             throw new LogicException('A POS sale needs an open Shift on its Register.');
@@ -58,17 +66,33 @@ class CheckoutPosSale
             throw new AuthorizationException('Checkout requires the pos.checkout permission.');
         }
 
-        [$lines, $hasDiscount] = $this->resolveLines($items);
+        [$lines, $hasDiscount] = $this->cart->handle($items);
         $hasDiscount = $hasDiscount || ($cartDiscount !== null && ! $cartDiscount->isZero());
 
         if ($hasDiscount && ! $user->checkPermissionTo('sale.discount')) {
             throw new AuthorizationException('A Manual Discount requires the sale.discount permission.');
         }
 
-        return DB::transaction(function () use ($shift, $lines, $tenders, $cartDiscount, $hasDiscount): Order {
+        if ($resume !== null && ($resume->platform_type !== PlatformType::Pos || $resume->status !== OrderStatus::PendingPayment)) {
+            throw new LogicException('Only a parked POS sale (รอชำระ) can be resumed.');
+        }
+
+        return DB::transaction(function () use ($shift, $lines, $tenders, $cartDiscount, $hasDiscount, $resume): Order {
             $shop = $shift->register()->firstOrFail()->shop()->firstOrFail();
 
-            $order = $this->createOrder->handle($shop, $lines, cartDiscount: $cartDiscount);
+            if ($resume !== null) {
+                if ($lines === []) {
+                    throw new InvalidArgumentException('A resumed sale needs at least one Order Line.');
+                }
+
+                // EditOrderLines reprices total = Σ line_total − cart_discount,
+                // so the discount must be on the order before the edit.
+                $resume->update(['cart_discount' => $cartDiscount ?? Money::fromSatang(0)]);
+                $order = $this->editLines->handle($resume, $lines);
+            } else {
+                $order = $this->createOrder->handle($shop, $lines, cartDiscount: $cartDiscount);
+            }
+
             $order->update(['shift_id' => $shift->id]);
 
             $this->takePayment($order, $tenders);
@@ -88,58 +112,6 @@ class CheckoutPosSale
 
             return $order->refresh()->load(['lines', 'payments']);
         });
-    }
-
-    /**
-     * @param  list<array{variant: Variant, qty: int, discount_baht?: Money, discount_percent?: float}>  $items
-     * @return array{list<array{variant: Variant, qty: int, unit_price: Money, discount: Money}>, bool}
-     */
-    private function resolveLines(array $items): array
-    {
-        $lines = [];
-        $hasDiscount = false;
-
-        foreach ($items as $item) {
-            $unitPrice = $item['variant']->list_price
-                ?? throw new InvalidArgumentException("Variant [{$item['variant']->master_sku}] has no List Price.");
-
-            $gross = $unitPrice->multiply($item['qty']);
-            $discount = $item['discount_baht'] ?? Money::fromSatang(0);
-
-            if (isset($item['discount_percent'])) {
-                $discount = $discount->add($this->percentOf($gross, $item['discount_percent']));
-            }
-
-            if ($discount->isNegative() || $gross->subtract($discount)->isNegative()) {
-                throw new InvalidArgumentException('A Manual Discount must stay between zero and the line amount.');
-            }
-
-            $hasDiscount = $hasDiscount || ! $discount->isZero();
-
-            $lines[] = [
-                'variant' => $item['variant'],
-                'qty' => $item['qty'],
-                'unit_price' => $unitPrice,
-                'discount' => $discount,
-            ];
-        }
-
-        return [$lines, $hasDiscount];
-    }
-
-    /**
-     * % of an amount, HALF-UP to whole satang, in pure integer math
-     * (basis points) — no float ever touches the money (ADR 0015).
-     */
-    private function percentOf(Money $amount, float $percent): Money
-    {
-        if ($percent < 0 || $percent > 100) {
-            throw new InvalidArgumentException('A % discount must be between 0 and 100.');
-        }
-
-        $basisPoints = (int) round($percent * 100);
-
-        return Money::fromSatang(intdiv($amount->satang * $basisPoints + 5_000, 10_000));
     }
 
     /**
