@@ -28,6 +28,11 @@ class VariantsRelationManager extends RelationManager
                 TextColumn::make('deal_price')
                     ->label('Deal Price (฿)')
                     ->formatStateUsing(fn (Money|string|null $state): ?string => $state instanceof Money ? $state->toBaht() : $state),
+                // Listing Status badge — read-only display (CONTEXT.md: Listing
+                // Status). Transitions are handled by later slices (#60).
+                TextColumn::make('listing_status')
+                    ->label('สถานะ')
+                    ->badge(),
             ])
             // Mapping rows are auto-provisioned by CreateListing — the
             // seller only overrides, never adds or removes rows here.

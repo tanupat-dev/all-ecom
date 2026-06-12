@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\MoneyCast;
+use App\Enums\ListingStatus;
 use App\Models\Concerns\TracksCreatedBy;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
@@ -22,18 +23,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $variant_id
  * @property string $platform_sku
  * @property Money|null $deal_price
+ * @property ListingStatus $listing_status
  */
 class ListingVariant extends Model
 {
     use BelongsToTenant;
     use TracksCreatedBy;
 
-    protected $fillable = ['listing_id', 'shop_id', 'variant_id', 'platform_sku', 'deal_price'];
+    protected $fillable = ['listing_id', 'shop_id', 'variant_id', 'platform_sku', 'deal_price', 'listing_status'];
 
     protected function casts(): array
     {
         return [
             'deal_price' => MoneyCast::class,
+            'listing_status' => ListingStatus::class,
         ];
     }
 

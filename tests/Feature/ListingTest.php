@@ -6,17 +6,20 @@ use App\Actions\Listings\ResolvePlatformSku;
 use App\Actions\Listings\UpdateListingVariant;
 use App\Actions\Shops\CreateShop;
 use App\Actions\Tenants\CreateTenant;
+use App\Enums\ListingStatus;
 use App\Enums\Platform;
 use App\Filament\Resources\Listings\ListingResource;
 use App\Listings\PlatformSkuConflictException;
 use App\Listings\UnresolvedPlatformSkuException;
 use App\Models\Listing;
+use App\Models\ListingVariant;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Support\Money;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -186,4 +189,80 @@ it('creates a Listing whose Variants default their Platform SKU to the Master SK
         ->and($listing->variants->pluck('platform_sku')->all())->toBe(['TS-RED-M', 'TS-RED-L'])
         ->and($listing->variants->first()?->deal_price)->toBeNull()
         ->and($listing->variants->first()?->shop_id)->toBe($shop->id);
+});
+
+// --- Listing Status (Issue #49) -----------------------------------------------
+
+it('defaults new ListingVariant listing_status to listed', function () {
+    $listing = app(CreateListing::class)->handle(marketplaceShop(), listedProduct());
+
+    /** @var ListingVariant $variant */
+    $variant = $listing->variants()->firstOrFail();
+
+    expect($variant->listing_status)->toBe(ListingStatus::Listed);
+});
+
+it('casts listing_status from string to the ListingStatus enum and back', function () {
+    $listing = app(CreateListing::class)->handle(marketplaceShop(), listedProduct());
+
+    /** @var ListingVariant $raw */
+    $raw = $listing->variants()->firstOrFail();
+
+    // Cast in: the attribute arrives from the DB as an enum case.
+    expect($raw->listing_status)->toBeInstanceOf(ListingStatus::class)
+        ->and($raw->listing_status->value)->toBe('listed');
+
+    // Cast out: assigning the enum case persists the correct string value.
+    $raw->listing_status = ListingStatus::Draft;
+    $raw->save();
+
+    expect($raw->fresh()?->listing_status)->toBe(ListingStatus::Draft)
+        ->and($raw->fresh()?->getRawOriginal('listing_status'))->toBe('draft');
+});
+
+it('stores and reads draft listing_status', function () {
+    $listing = app(CreateListing::class)->handle(marketplaceShop(), listedProduct());
+
+    /** @var ListingVariant $variant */
+    $variant = $listing->variants()->firstOrFail();
+    $variant->listing_status = ListingStatus::Draft;
+    $variant->save();
+
+    expect($variant->fresh()?->listing_status)->toBe(ListingStatus::Draft);
+});
+
+it('reads listed when a row is inserted via raw DB without the listing_status column — backfill by DB default', function () {
+    // Build a fresh shop + product so we control the exact (listing, variant)
+    // combination and avoid any unique-constraint collision.
+    $shop = marketplaceShop('backfill-shop');
+    $product = app(CreateProduct::class)->handle('Backfill Item', [
+        ['master_sku' => 'BF-1', 'list_price' => Money::fromBaht('99')],
+    ]);
+    $listing = app(CreateListing::class)->handle($shop, $product);
+
+    // CreateListing auto-inserts a ListingVariant with listing_status via
+    // Eloquent. Delete it so we can re-insert the same (listing, variant)
+    // pair using only the DB DEFAULT — simulating a row that existed before
+    // the column was added (CONTEXT.md: Listing Status; Issue #49).
+    $auto = $listing->variants()->firstOrFail();
+    DB::table('listing_variants')->where('id', $auto->id)->delete();
+
+    // Use the listing's tenant_id directly (TenantContext::current() is
+    // nullable per its signature; the listing's FK is not).
+    $id = DB::table('listing_variants')->insertGetId([
+        'tenant_id' => $listing->tenant_id,
+        'listing_id' => $listing->id,
+        'shop_id' => $shop->id,
+        'variant_id' => $auto->variant_id,
+        'platform_sku' => $auto->platform_sku,
+        'created_by' => null,  // auth()->id() is null in tests; TracksCreatedBy allows null
+        'created_at' => now(),
+        'updated_at' => now(),
+        // listing_status intentionally omitted — relies on DB DEFAULT 'listed'
+    ]);
+
+    /** @var ListingVariant $row */
+    $row = ListingVariant::withoutGlobalScopes()->findOrFail($id);
+
+    expect($row->listing_status)->toBe(ListingStatus::Listed);
 });
