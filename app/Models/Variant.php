@@ -64,6 +64,18 @@ class Variant extends Model
     }
 
     /**
+     * All ListingVariant rows for this Variant (one per Shop × Platform SKU
+     * mapping). Used by Listing Coverage to build the Variant × Shop matrix
+     * without N+1 queries (CONTEXT.md: Listing Coverage; ADR 0019).
+     *
+     * @return HasMany<ListingVariant, $this>
+     */
+    public function listingVariants(): HasMany
+    {
+        return $this->hasMany(ListingVariant::class);
+    }
+
+    /**
      * @return HasMany<BundleComponent, $this>
      */
     public function bundleComponents(): HasMany
