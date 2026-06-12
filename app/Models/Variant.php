@@ -6,8 +6,10 @@ use App\Casts\MoneyCast;
 use App\Models\Concerns\TracksCreatedBy;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * The sellable unit (CONTEXT.md: Variant): carries Master SKU, List Price
@@ -43,5 +45,32 @@ class Variant extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * @return HasMany<CostPrice, $this>
+     */
+    public function costPrices(): HasMany
+    {
+        return $this->hasMany(CostPrice::class);
+    }
+
+    /**
+     * The cost in force at $at — the latest history row with
+     * valid_from ≤ $at (CONVENTIONS rule 9: profit uses the cost at the
+     * sale date). Null when no cost was recorded yet at that date.
+     */
+    public function costAt(DateTimeInterface $at): ?Money
+    {
+        return $this->costPrices()
+            ->where('valid_from', '<=', $at)
+            ->orderByDesc('valid_from')
+            ->first()
+            ?->cost;
+    }
+
+    public function currentCost(): ?Money
+    {
+        return $this->costAt(now());
     }
 }
