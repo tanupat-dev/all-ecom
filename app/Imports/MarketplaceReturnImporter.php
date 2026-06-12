@@ -68,6 +68,21 @@ abstract class MarketplaceReturnImporter extends PlatformFileImporter
         return [...$normalized, 'order_line' => $orderLine];
     }
 
+    /**
+     * One case's refund amount from its rows. The default takes the first
+     * row's value — for exports that repeat the case TOTAL on every row
+     * (Shopee). An export carrying per-LINE amounts (TikTok) overrides to
+     * sum them (ADR 0015: never double-count, never drop satang).
+     *
+     * @param  non-empty-list<array<string, mixed>>  $rows
+     */
+    protected function caseRefundAmount(array $rows): ?Money
+    {
+        $refund = $rows[0]['refund_amount'];
+
+        return $refund instanceof Money ? $refund : null;
+    }
+
     public function upsertChunk(array $chunk): void
     {
         $byReturn = [];
@@ -106,7 +121,7 @@ abstract class MarketplaceReturnImporter extends PlatformFileImporter
 
             $reason = $first['return_reason'];
             $note = $first['buyer_note'];
-            $refund = $first['refund_amount'];
+            $refund = $this->caseRefundAmount($rows);
             $tracking = $first['tracking_number'];
             $requestedAt = $first['requested_at'];
             $refundedAt = $first['refunded_at'];

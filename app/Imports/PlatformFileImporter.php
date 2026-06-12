@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\ImportJob;
 use App\Models\Shop;
+use App\Support\Money;
 use DateTimeImmutable;
 use DateTimeZone;
 use LogicException;
@@ -65,6 +66,19 @@ abstract class PlatformFileImporter implements Importer, ImportJobAware
         $value = $row[$header] ?? null;
 
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * A money cell: a plain baht number, defensively stripped of currency
+     * markers / thousands commas; empty = zero (ADR 0015).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    protected function moneyCell(array $row, string $header): Money
+    {
+        $value = str_replace(['฿', 'THB', ',', ' '], '', $this->cell($row, $header));
+
+        return Money::fromBaht($value === '' ? '0' : $value);
     }
 
     protected function shop(): Shop

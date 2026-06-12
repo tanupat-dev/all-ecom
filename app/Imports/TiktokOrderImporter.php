@@ -126,17 +126,4 @@ class TiktokOrderImporter extends MarketplaceOrderImporter
         // '05/06/2026 12:53:02' (the trailing tab is trimmed upstream).
         return ['d/m/Y H:i:s'];
     }
-
-    /**
-     * A TikTok money cell: a plain baht number, defensively stripped of a
-     * currency marker / thousands commas; empty = zero.
-     *
-     * @param  array<string, mixed>  $row
-     */
-    private function moneyCell(array $row, string $header): Money
-    {
-        $value = str_replace(['THB', ',', ' '], '', $this->cell($row, $header));
-
-        return Money::fromBaht($value === '' ? '0' : $value);
-    }
 }

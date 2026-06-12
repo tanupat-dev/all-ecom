@@ -9,6 +9,7 @@ use App\Imports\MarketplaceReturnImporter;
 use App\Imports\ShopeeOrderImporter;
 use App\Imports\ShopeeReturnImporter;
 use App\Imports\TiktokOrderImporter;
+use App\Imports\TiktokReturnImporter;
 
 /**
  * The concrete sales channels (CONTEXT.md: Platform).
@@ -68,6 +69,7 @@ enum Platform: string
         return match ($this) {
             self::Shopee => ShopeeReturnImporter::class,
             self::Lazada => LazadaReturnImporter::class,
+            self::Tiktok => TiktokReturnImporter::class,
             default => null,
         };
     }
