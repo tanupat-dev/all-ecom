@@ -2,8 +2,10 @@
 
 namespace App\Enums;
 
+use App\Imports\ChannelTemplate\LazadaTemplateFiller;
 use App\Imports\ChannelTemplate\ShopeeTemplateFiller;
 use App\Imports\ChannelTemplate\TemplateFillImporter;
+use App\Imports\ChannelTemplate\TiktokTemplateFiller;
 use App\Imports\LazadaAllProductImporter;
 use App\Imports\LazadaOrderImporter;
 use App\Imports\LazadaReturnImporter;
@@ -109,7 +111,8 @@ enum Platform: string
     {
         return match ($this) {
             self::Shopee => ShopeeTemplateFiller::class,
-            // Lazada (#58) and TikTok (#59) to follow.
+            self::Lazada => LazadaTemplateFiller::class,
+            self::Tiktok => TiktokTemplateFiller::class,
             default => null,
         };
     }

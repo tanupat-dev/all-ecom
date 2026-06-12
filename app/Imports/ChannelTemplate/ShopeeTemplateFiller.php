@@ -81,6 +81,21 @@ final class ShopeeTemplateFiller implements TemplateFillImporter
         return self::TARGET_SHEET;
     }
 
+    public function resolveTargetSheet(string $xlsxPath): string
+    {
+        return $this->targetSheet();
+    }
+
+    public function keySheet(string $targetSheet): string
+    {
+        return $targetSheet;
+    }
+
+    public function keyRow(): int
+    {
+        return 1;
+    }
+
     public function dataStartRow(): int
     {
         return self::DATA_START_ROW;

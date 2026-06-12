@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Collection;
  * Contract for a per-platform Channel Upload Template filler (ADR 0019,
  * Issue #57–59). Each platform implements this to tell RunTemplateFillJob:
  *
- *  - which sheet to target
+ *  - which sheet to target (resolved dynamically from the file for Lazada)
+ *  - which sheet / row holds machine column keys
  *  - which row data starts at (after the preamble)
  *  - how to map a Variant to a map of column-key-prefix → cell value
  *
@@ -27,6 +28,30 @@ interface TemplateFillImporter
      * workbook's sheet name exactly, not a position index).
      */
     public function targetSheet(): string;
+
+    /**
+     * Resolve the target sheet name from the uploaded workbook file. Called
+     * once by RunTemplateFillJob before filling begins. For platforms with a
+     * fixed sheet name (Shopee/TikTok) this returns $this->targetSheet()
+     * without reading the file. Override for Lazada where the category sheet
+     * name is dynamic per download.
+     */
+    public function resolveTargetSheet(string $xlsxPath): string;
+
+    /**
+     * Name of the sheet that holds the machine column-key row. Default = the
+     * target sheet itself (Shopee/TikTok: keys sit in row 1 of the data
+     * sheet). Lazada overrides to "<targetSheet>_hide".
+     */
+    public function keySheet(string $targetSheet): string;
+
+    /**
+     * Physical 1-based row number (the XML r= attribute, not content-row
+     * count) that holds machine keys in keySheet(). Default = 1. Lazada
+     * overrides to 3 because physical rows 1–2 of the _hide sheet are
+     * structural empty rows.
+     */
+    public function keyRow(): int;
 
     /**
      * 1-based row index where data rows start (after all preamble rows).

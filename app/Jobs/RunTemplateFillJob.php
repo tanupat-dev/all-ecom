@@ -136,18 +136,22 @@ class RunTemplateFillJob implements ShouldQueue
             $resultPath = null;
 
             if ($fillData !== []) {
-                $surgeon = new WorkbookSurgeon(
-                    Storage::disk('local')->path($importJob->stored_path)
-                );
+                $xlsxPath = Storage::disk('local')->path($importJob->stored_path);
+                $surgeon = new WorkbookSurgeon($xlsxPath);
 
+                // Resolve the target sheet name from the workbook (dynamic for
+                // Lazada; a no-op read for Shopee/TikTok fixed-name sheets).
+                $targetSheet = $filler->resolveTargetSheet($xlsxPath);
+                $keySheet = $filler->keySheet($targetSheet);
+                $keyRow = $filler->keyRow();
                 $dataRow = $filler->dataStartRow();
 
                 foreach ($fillData as $colValues) {
                     foreach ($colValues as $keyPrefix => $value) {
-                        $colIdx = $surgeon->columnIndex($filler->targetSheet(), $keyPrefix);
+                        $colIdx = $surgeon->columnIndex($keySheet, $keyPrefix, $keyRow);
 
                         if ($colIdx !== null) {
-                            $surgeon->writeCell($filler->targetSheet(), $dataRow, $colIdx, $value);
+                            $surgeon->writeCell($targetSheet, $dataRow, $colIdx, $value);
                         }
                     }
 

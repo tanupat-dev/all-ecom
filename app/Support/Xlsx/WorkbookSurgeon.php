@@ -43,7 +43,16 @@ final class WorkbookSurgeon
      */
     private array $loadedDoms = [];
 
-    /** Column key prefix → 1-based column index cache per sheet.
+    /** Zip paths of sheets that have been written to via writeCell() — only
+     * these are re-serialised in save(). Sheets loaded read-only (e.g. for
+     * columnIndex() on a _hide key sheet) are never re-serialised.
+     *
+     * @var array<string, true>
+     */
+    private array $writtenPaths = [];
+
+    /** Column key prefix → 1-based column index cache per (sheet, keyRow).
+     * Outer key = "$sheetName:$keyRow", inner key = key prefix.
      *
      * @var array<string, array<string, int>>
      */
@@ -64,13 +73,19 @@ final class WorkbookSurgeon
 
     /**
      * Return the 1-based column index for the first column in $sheetName
-     * whose Row-1 machine-key has the given $keyPrefix (prefix before the
-     * first `|`). Returns null if not found.
+     * whose machine-key row (at physical row $keyRow) has the given
+     * $keyPrefix (prefix before the first `|`). Returns null if not found.
+     *
+     * $keyRow is the physical row number from the XML r= attribute — NOT a
+     * content-row count. Shopee/TikTok use row 1 (default). Lazada uses row 3
+     * of the _hide sheet (rows 1–2 are structural empty rows).
      */
-    public function columnIndex(string $sheetName, string $keyPrefix): ?int
+    public function columnIndex(string $sheetName, string $keyPrefix, int $keyRow = 1): ?int
     {
-        if (isset($this->columnIndexCache[$sheetName][$keyPrefix])) {
-            return $this->columnIndexCache[$sheetName][$keyPrefix];
+        $cacheKey = $sheetName.':'.$keyRow;
+
+        if (isset($this->columnIndexCache[$cacheKey][$keyPrefix])) {
+            return $this->columnIndexCache[$cacheKey][$keyPrefix];
         }
 
         $dom = $this->getSheetDom($sheetName);
@@ -78,7 +93,7 @@ final class WorkbookSurgeon
 
         foreach ($dom->getElementsByTagNameNS($ns, 'row') as $rowEl) {
             /** @var DOMElement $rowEl */
-            if ($rowEl->getAttribute('r') !== '1') {
+            if ((int) $rowEl->getAttribute('r') !== $keyRow) {
                 continue;
             }
 
@@ -91,13 +106,13 @@ final class WorkbookSurgeon
                     $ref = $cellEl->getAttribute('r');
                     $colLetter = rtrim($ref, '0123456789');
                     $idx = self::letterToIndex($colLetter);
-                    $this->columnIndexCache[$sheetName][$keyPrefix] = $idx;
+                    $this->columnIndexCache[$cacheKey][$keyPrefix] = $idx;
 
                     return $idx;
                 }
             }
 
-            // Row 1 found but key not present — stop scanning rows.
+            // Target row found but key not present — stop scanning rows.
             break;
         }
 
@@ -112,6 +127,11 @@ final class WorkbookSurgeon
     {
         $dom = $this->getSheetDom($sheetName);
         $ns = $this->worksheetNamespace($dom);
+
+        // Mark this sheet's zip path as written so save() re-serialises it.
+        $path = $this->sheetPaths[$sheetName]
+            ?? throw new RuntimeException("Sheet '{$sheetName}' not found in the workbook.");
+        $this->writtenPaths[$path] = true;
         $ref = self::indexToLetter($colIndex).$rowIndex;
 
         $rowEl = $this->findOrCreateRow($dom, $ns, $rowIndex);
@@ -150,13 +170,19 @@ final class WorkbookSurgeon
      * modified sheet(s) is copied from the source at the content level
      * (decompressed bytes are identical; ZipArchive may choose its own
      * compression, but extracted content is bit-for-bit the same).
+     *
+     * Only sheets that were written to via writeCell() are re-serialised.
+     * Sheets loaded read-only (e.g. for columnIndex() on a _hide key sheet)
+     * are copied verbatim from the source — preserving byte-identity.
      */
     public function save(string $outputPath): void
     {
-        // Serialise modified sheets.
+        // Serialise only the sheets that were actually written to.
         $modified = [];
         foreach ($this->loadedDoms as $zipPath => $dom) {
-            $modified[$zipPath] = $dom->saveXML();
+            if (isset($this->writtenPaths[$zipPath])) {
+                $modified[$zipPath] = $dom->saveXML();
+            }
         }
 
         $dst = new ZipArchive;
