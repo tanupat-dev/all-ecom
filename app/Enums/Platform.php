@@ -11,6 +11,7 @@ use App\Imports\PlatformFileImporter;
 use App\Imports\ShopeeAllProductImporter;
 use App\Imports\ShopeeOrderImporter;
 use App\Imports\ShopeeReturnImporter;
+use App\Imports\TiktokAllProductImporter;
 use App\Imports\TiktokOrderImporter;
 use App\Imports\TiktokReturnImporter;
 
@@ -90,6 +91,7 @@ enum Platform: string
         return match ($this) {
             self::Shopee => ShopeeAllProductImporter::class,
             self::Lazada => LazadaAllProductImporter::class,
+            self::Tiktok => TiktokAllProductImporter::class,
             default => null,
         };
     }
