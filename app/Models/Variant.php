@@ -56,12 +56,70 @@ class Variant extends Model
     }
 
     /**
+     * @return HasMany<BundleComponent, $this>
+     */
+    public function bundleComponents(): HasMany
+    {
+        return $this->hasMany(BundleComponent::class, 'bundle_variant_id');
+    }
+
+    public function isBundle(): bool
+    {
+        return $this->bundleComponents()->exists();
+    }
+
+    /**
+     * Available at a Location. A normal variant reads its denormalized
+     * balance; a Bundle has no stored Available — it derives
+     * min(floor(component available / qty)) (ADR 0014). Either may go
+     * negative (oversell).
+     */
+    public function availableAt(Location $location): int
+    {
+        $components = $this->bundleComponents()->with('component')->get();
+
+        if ($components->isEmpty()) {
+            $balance = StockBalance::query()
+                ->where('variant_id', $this->id)
+                ->where('location_id', $location->id)
+                ->first();
+
+            return $balance->available ?? 0;
+        }
+
+        return (int) $components
+            ->map(fn (BundleComponent $bom): int => (int) floor(
+                $bom->component()->firstOrFail()->availableAt($location) / $bom->qty,
+            ))
+            ->min();
+    }
+
+    /**
      * The cost in force at $at — the latest history row with
      * valid_from ≤ $at (CONVENTIONS rule 9: profit uses the cost at the
-     * sale date). Null when no cost was recorded yet at that date.
+     * sale date). A Bundle's cost = Σ component cost at that date × qty
+     * (ADR 0014); null if any component has no cost yet — never guess.
      */
     public function costAt(DateTimeInterface $at): ?Money
     {
+        $components = $this->bundleComponents()->with('component')->get();
+
+        if ($components->isNotEmpty()) {
+            $total = Money::fromSatang(0);
+
+            foreach ($components as $bom) {
+                $componentCost = $bom->component()->firstOrFail()->costAt($at);
+
+                if ($componentCost === null) {
+                    return null;
+                }
+
+                $total = $total->add($componentCost->multiply($bom->qty));
+            }
+
+            return $total;
+        }
+
         return $this->costPrices()
             ->where('valid_from', '<=', $at)
             ->orderByDesc('valid_from')

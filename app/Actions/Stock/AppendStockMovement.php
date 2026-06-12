@@ -34,6 +34,10 @@ class AppendStockMovement
         ?string $note = null,
         ?int $reservedReleased = null,
     ): StockMovement {
+        if ($variant->isBundle()) {
+            throw new InvalidArgumentException('A Bundle is virtual — never move bundle stock; expand to components via ExpandBundleMovements (ADR 0014).');
+        }
+
         $this->guard($action, $qty, $reservedReleased);
 
         [$onHandDelta, $reservedDelta, $damagedDelta] = match ($action) {
