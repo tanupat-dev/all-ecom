@@ -2,6 +2,7 @@
 
 namespace App\Actions\Shops;
 
+use App\Actions\Pos\CreateRegister;
 use App\Enums\Platform;
 use App\Enums\PlatformType;
 use App\Models\Location;
@@ -33,6 +34,12 @@ class CreateShop
                     'mismatch_threshold' => Money::fromBaht('1'),
                     'expected_shipping_rate' => null,
                 ]);
+            }
+
+            // A single-counter shop never thinks about Registers — one
+            // default till from day one (CONTEXT.md: Register).
+            if ($platform->type() === PlatformType::Pos) {
+                app(CreateRegister::class)->handle($shop, 'เคาน์เตอร์หลัก');
             }
 
             return $shop->load('settings');
