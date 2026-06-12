@@ -6,11 +6,12 @@ across marketplaces (Shopee/Lazada/TikTok via **Excel import/export — no API**
 ## Read first (sources of truth — point here, don't restate)
 - **`CONVENTIONS.md`** — structure / patterns / quality gates. **Read before writing any code.**
 - **`CONTEXT.md`** — domain glossary (Tenant, Variant, Stock Movement, Shift, …). All terms come from here.
-- **`docs/adr/0001–0016`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
+- **`docs/adr/0001–0017`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
 - **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently at **Phase 0 — no code yet**.
 
 ## Stack (locked — changing it requires an ADR)
-Laravel 11 · Filament (back-office) · Livewire + Alpine (POS) · PostgreSQL · deploy Forge/Ploi → Hetzner.
+Laravel 13 · Filament 5 (back-office) · Livewire 4 + Alpine (POS) · PostgreSQL · deploy Forge/Ploi → Hetzner.
+Framework majors track the security-support window (ADR 0017) — upgrading a major is routine maintenance.
 Dev = WSL2 Ubuntu native · CI = GitHub Actions `ubuntu-latest`.
 
 ## Iron rules (details live in the ADRs — never violate)

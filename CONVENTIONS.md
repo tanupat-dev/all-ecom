@@ -2,13 +2,13 @@
 
 **Read this file before writing any code, every time.** Goal: one convention across the whole project, the same structure in every feature — never invent a new pattern. To deviate from this, the reason must be written in an ADR.
 
-Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0016) · **`docs/ROADMAP.md`** (build order).
+Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decisions 0001–0017) · **`docs/ROADMAP.md`** (build order).
 
 ---
 
 ## Stack (locked)
 
-- **Laravel 11** + **Filament** (back-office) + **Livewire + Alpine** (POS reactive) + **PostgreSQL**.
+- **Laravel 13** + **Filament 5** (back-office) + **Livewire 4 + Alpine** (POS reactive) + **PostgreSQL**. Framework majors track the security-support window — upgrade before a major's security EOL as routine maintenance (ADR 0017).
 - **Dev runtime = WSL2 Ubuntu native** (project at `~/projects/all-ecom`, edited via VS Code Remote-WSL) — chosen over Herd (Windows-native, parity drift) and Sail/Docker (RAM-heavy) for true Linux parity at low RAM. **CI = GitHub Actions `ubuntu-latest`** (the parity net). Run Claude Code dev sessions from the WSL path so tools are native Linux. (Issue #1.)
 - Deploy: **Forge/Ploi → Hetzner Cloud Singapore**. Queue: database → Redis when it grows. Worker: Supervisor.
 - Do not add a large dependency / change the stack without an ADR.

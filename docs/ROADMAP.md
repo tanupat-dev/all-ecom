@@ -9,7 +9,7 @@ A greenfield build order designed to go **1 → N forward without ever looping b
 3. **Later phases only ADD** — a new slice (POS, marketplace, accounting…) extends the kernel by *adding* a new entity/field/consumer, never by *changing* the core.
 4. **The only condition that allows going back to fix an earlier phase**: it genuinely conflicts with an industry standard, or the owner deliberately changes a decision. Nothing else.
 
-Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0016`.
+Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0017`.
 
 ---
 
@@ -19,7 +19,7 @@ Things that, if chosen wrong, force a full-system rebuild. Lock them before writ
 
 | Topic | Decision (locked) |
 |---|---|
-| **Tech stack** | 🔒 **LOCKED: Laravel 11 + Filament + Livewire + Alpine + PostgreSQL**, deployed via Forge/Ploi on Hetzner Cloud Singapore. Chosen for its two layers of high convention (Laravel + the Filament Resource pattern) → an AI can't build a messy structure. See `CONVENTIONS.md`. |
+| **Tech stack** | 🔒 **LOCKED: Laravel 13 + Filament 5 + Livewire 4 + Alpine + PostgreSQL** (majors track the security-support window, ADR 0017), deployed via Forge/Ploi on Hetzner Cloud Singapore. Chosen for its two layers of high convention (Laravel + the Filament Resource pattern) → an AI can't build a messy structure. See `CONVENTIONS.md`. |
 | **Guardrails** | Pint (format) · Larastan/PHPStan **level max** · Pest (test) · **Actions pattern** (1 business action = 1 class) · Form Request (validation) · Policy (role gate) · Job (bulk). Enforced by CI before merge. |
 | **Money** | Integer **satang (integer)** system-wide — no float. THB only (per the THB-only decision). |
 | **Time** | Store UTC, display `Asia/Bangkok`. Every milestone/timestamp is timezone-aware. |
