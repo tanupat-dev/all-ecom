@@ -13,13 +13,12 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: all_ecom
-          POSTGRES_PASSWORD: all_ecom
-          POSTGRES_DB: all_ecom_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U all_ecom"
+          --health-cmd "pg_isready -U postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -29,7 +28,7 @@ jobs:
       DB_PORT: '5432'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -40,13 +39,23 @@ jobs:
       - name: Install composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
 
       - name: Build assets
         run: npm ci --no-fund --no-audit && npm run build
+
+      # Tests must NOT run as the image superuser — superusers always bypass
+      # RLS and the isolation suite (ADR 0011/0018) would prove nothing.
+      - name: Provision non-superuser test role
+        run: |
+          psql postgresql://postgres:postgres@127.0.0.1:5432/postgres <<'SQL'
+          CREATE ROLE all_ecom LOGIN PASSWORD 'all_ecom'
+              NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+          CREATE DATABASE all_ecom_test OWNER all_ecom;
+          SQL
 
       - name: Pint (format)
         run: ./vendor/bin/pint --test

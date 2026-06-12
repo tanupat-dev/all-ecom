@@ -9,7 +9,7 @@ A greenfield build order designed to go **1 → N forward without ever looping b
 3. **Later phases only ADD** — a new slice (POS, marketplace, accounting…) extends the kernel by *adding* a new entity/field/consumer, never by *changing* the core.
 4. **The only condition that allows going back to fix an earlier phase**: it genuinely conflicts with an industry standard, or the owner deliberately changes a decision. Nothing else.
 
-Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0017`.
+Model reference: `CONTEXT.md` (glossary) + `docs/adr/0001–0018`.
 
 ---
 
@@ -25,7 +25,7 @@ Things that, if chosen wrong, force a full-system rebuild. Lock them before writ
 | **Time** | Store UTC, display `Asia/Bangkok`. Every milestone/timestamp is timezone-aware. |
 | **Ledger pattern** | append-only / immutable as a central primitive (Stock Movement, Accounting cycle, Claim Timeline, Paid-in/out all reuse it). Change = append a new record, never update/delete. |
 | **IDs** | internal numeric/uuid, never shown to the user; every entity has `created_at/updated_at` + `created_by` (User). |
-| **Tenancy** | **multi-tenant row-level** (ADR 0011): create a **Tenant table** + `tenant_id` on every domain table (the FK target of Phase 1) + an **app global scope** (stancl/tenancy `BelongsToTenant`) + **Postgres RLS** (the app connects to the DB as a non-owner role) for two layers of defense. Composite indexes always lead with `tenant_id`; denormalized balances + rollups are per-Tenant. Only signup/onboarding/billing is deferred — the data boundary exists from day one. A cross-tenant isolation test is a must. |
+| **Tenancy** | **multi-tenant row-level** (ADR 0011): create a **Tenant table** + `tenant_id` on every domain table (the FK target of Phase 1) + an **app global scope** (`BelongsToTenant` — first-party per ADR 0018 until stancl/tenancy v4 ships stable) + **Postgres RLS** (the app connects to the DB as a non-owner role) for two layers of defense. Composite indexes always lead with `tenant_id`; denormalized balances + rollups are per-Tenant. Only signup/onboarding/billing is deferred — the data boundary exists from day one. A cross-tenant isolation test is a must. |
 | **Audit** | admin-gated actions (void/refund/discount) must log who approved. |
 | **Queue + worker** | set up the queue (DB driver first → Redis when it grows) + a persistent worker (Supervisor/systemd, set up by Forge/Ploi) + an `import_job` status table. All bulk/async work depends on this. |
 | **Bulk pipeline** | write **one central import pipeline** (upload → store → queued job → streaming parse → chunked upsert → fail-loud report + progress) reused everywhere: Stock Adjustment (1), batch List Price, marketplace import (4), accounting import (6). |

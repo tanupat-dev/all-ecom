@@ -6,16 +6,20 @@ use Filament\Auth\Pages\Login;
 use Filament\Support\Facades\FilamentTimezone;
 use Livewire\Livewire;
 
+use function Pest\Laravel\assertAuthenticatedAs;
+use function Pest\Laravel\get;
+use function Pest\Laravel\seed;
+
 it('responds to the health check', function () {
-    $this->get('/up')->assertOk();
+    get('/up')->assertOk();
 });
 
 it('renders the admin login page', function () {
-    $this->get('/admin/login')->assertOk();
+    get('/admin/login')->assertOk();
 });
 
 it('authenticates the seeded admin into the panel', function () {
-    $this->seed(DatabaseSeeder::class);
+    seed(DatabaseSeeder::class);
 
     Livewire::test(Login::class)
         ->fillForm([
@@ -25,7 +29,7 @@ it('authenticates the seeded admin into the panel', function () {
         ->call('authenticate')
         ->assertHasNoFormErrors();
 
-    $this->assertAuthenticatedAs(User::query()->firstWhere('email', 'admin@all-ecom.test'));
+    assertAuthenticatedAs(User::query()->where('email', 'admin@all-ecom.test')->firstOrFail());
 });
 
 it('stores time in UTC', function () {

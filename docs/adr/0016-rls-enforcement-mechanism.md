@@ -1,7 +1,7 @@
 # Tenant RLS enforcement: stancl/tenancy RLS bootstrapper + a non-owner app role + FORCE ROW LEVEL SECURITY
 
 ---
-Status: accepted — **refines ADR 0011** (pins the *how* of its row-level enforcement; does not supersede it)
+Status: accepted — **refines ADR 0011** (pins the *how* of its row-level enforcement; does not supersede it). **Pillar 4 amended by ADR 0018**: stancl/tenancy v4 was not yet released at build time, so the plumbing is first-party minimal code shaped to converge on the v4 bootstrapper.
 ---
 
 ADR 0011 mandates row-level tenant isolation defended twice — an application global scope **and** PostgreSQL Row-Level Security (RLS), with "the app connects as a non-owner DB role". It did not pin the concrete mechanism. This ADR does:

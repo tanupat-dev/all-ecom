@@ -1,5 +1,6 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    - vendor/pestphp/pest/phpstan-pest-extension.neon
 
 parameters:
     level: max
@@ -11,3 +12,4 @@ parameters:
         - config
         - database
         - routes
+        - tests
