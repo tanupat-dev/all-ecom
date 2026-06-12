@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Imports\ChannelTemplate\ShopeeTemplateFiller;
+use App\Imports\ChannelTemplate\TemplateFillImporter;
 use App\Imports\LazadaAllProductImporter;
 use App\Imports\LazadaOrderImporter;
 use App\Imports\LazadaReturnImporter;
@@ -92,6 +94,22 @@ enum Platform: string
             self::Shopee => ShopeeAllProductImporter::class,
             self::Lazada => LazadaAllProductImporter::class,
             self::Tiktok => TiktokAllProductImporter::class,
+            default => null,
+        };
+    }
+
+    /**
+     * The Channel Upload Template filler for this marketplace (ADR 0019,
+     * Phase 9 B, Issue #57–59): fills the owned columns of the platform's
+     * bulk-upload template from the master catalog + stock.
+     *
+     * @return class-string<TemplateFillImporter>|null
+     */
+    public function templateFillImporter(): ?string
+    {
+        return match ($this) {
+            self::Shopee => ShopeeTemplateFiller::class,
+            // Lazada (#58) and TikTok (#59) to follow.
             default => null,
         };
     }
