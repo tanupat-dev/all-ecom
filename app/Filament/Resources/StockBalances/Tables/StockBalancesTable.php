@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\StockBalances\Tables;
 
+use App\Actions\Stock\TransferStock;
+use App\Models\Location;
 use App\Models\StockBalance;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -40,6 +43,40 @@ class StockBalancesTable
                     ->label('ชำรุด'),
             ])
             ->recordActions([
+                Action::make('transfer')
+                    ->label('โอนย้าย')
+                    ->schema([
+                        Select::make('destination_id')
+                            ->label('ไปที่คลัง/สาขา')
+                            ->options(fn (StockBalance $record): array => Location::query()
+                                ->whereKeyNot($record->location_id)
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->required(),
+                        TextInput::make('qty')
+                            ->label('จำนวน')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->required(),
+                    ])
+                    ->action(function (StockBalance $record, array $data): void {
+                        $destinationId = $data['destination_id'] ?? null;
+                        $qty = $data['qty'] ?? null;
+
+                        if (! is_numeric($destinationId) || ! is_numeric($qty) || (int) $qty < 1) {
+                            throw new InvalidArgumentException('A transfer needs a destination and a positive qty.');
+                        }
+
+                        $destination = Location::query()->findOrFail((int) $destinationId);
+
+                        app(TransferStock::class)->handle(
+                            $record->variant()->firstOrFail(),
+                            $record->location()->firstOrFail(),
+                            $destination,
+                            (int) $qty,
+                        );
+                    }),
                 // Quantities only move through the ledger; Buffer is the one
                 // editable policy number here (CONTEXT.md: Buffer).
                 Action::make('editBuffer')
