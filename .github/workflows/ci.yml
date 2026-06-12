@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: all_ecom
+          POSTGRES_PASSWORD: all_ecom
+          POSTGRES_DB: all_ecom_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U all_ecom"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Real env vars win over phpunit.xml <env> values (force="false").
+      DB_PORT: '5432'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pgsql, intl, zip, gd, bcmath
+          coverage: none
+
+      - name: Install composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build assets
+        run: npm ci --no-fund --no-audit && npm run build
+
+      - name: Pint (format)
+        run: ./vendor/bin/pint --test
+
+      - name: Larastan (level max)
+        run: ./vendor/bin/phpstan analyse --no-progress
+
+      - name: Pest
+        run: ./vendor/bin/pest --ci

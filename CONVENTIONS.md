@@ -17,7 +17,7 @@ Sources of truth: **`CONTEXT.md`** (domain / glossary) · **`docs/adr/`** (decis
 
 - **Pint** — format (no custom style).
 - **Larastan/PHPStan level max** — no errors.
-- **Pest** — every Action/flow has a test; **a cross-tenant isolation test is a must**.
+- **Pest** — every Action/flow has a test; **a cross-tenant isolation test is a must**. Tests run on **Postgres** (`all_ecom_test` locally on :5434, a service container in CI) for prod parity — RLS (ADR 0011/0016) cannot be tested on sqlite.
 
 ## Verify / hosting (see skills)
 
