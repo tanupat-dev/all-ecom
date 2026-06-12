@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Enums\OrderStatus;
 use App\Enums\PlatformType;
 use App\Imports\NormalizedOrder;
 use App\Models\Order;
@@ -98,6 +99,17 @@ class ImportMarketplaceOrder
 
             $total = Money::fromSatang((int) $order->lines()->sum('line_total'));
             $order->update(['total' => $total]);
+
+            // Captured only when the Order is ยกเลิก (CONTEXT.md:
+            // Cancellation Reason) — a stale reason cell on a live order
+            // is ignored.
+            if ($order->status === OrderStatus::Cancelled) {
+                $order->update(array_filter([
+                    'cancelled_by' => $normalized->cancelledBy,
+                    'cancel_reason_category' => $normalized->cancelReasonCategory,
+                    'cancel_reason_source' => $normalized->cancelReasonSource,
+                ], static fn (mixed $v): bool => $v !== null));
+            }
 
             $this->applyMilestones->handle($order, $normalized->milestones);
 

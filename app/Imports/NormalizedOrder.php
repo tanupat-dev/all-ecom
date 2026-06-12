@@ -2,6 +2,8 @@
 
 namespace App\Imports;
 
+use App\Enums\CancelledBy;
+use App\Enums\CancelReasonCategory;
 use App\Enums\OrderStatus;
 use App\Models\Variant;
 use App\Support\Money;
@@ -33,5 +35,10 @@ final readonly class NormalizedOrder
         public ?string $trackingNumber = null,
         public ?string $buyerName = null,
         public ?string $buyerPhone = null,
+        // CONTEXT.md: Cancellation Reason — persisted only on a ยกเลิก
+        // order; already mapped fail-loud by the platform importer.
+        public ?CancelledBy $cancelledBy = null,
+        public ?CancelReasonCategory $cancelReasonCategory = null,
+        public ?string $cancelReasonSource = null,
     ) {}
 }

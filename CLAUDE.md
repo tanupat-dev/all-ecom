@@ -7,7 +7,7 @@ across marketplaces (Shopee/Lazada/TikTok via **Excel import/export — no API**
 - **`CONVENTIONS.md`** — structure / patterns / quality gates. **Read before writing any code.**
 - **`CONTEXT.md`** — domain glossary (Tenant, Variant, Stock Movement, Shift, …). All terms come from here.
 - **`docs/adr/0001–0018`** — costly-to-reverse decisions. To deviate, write a NEW ADR that supersedes — never edit one in place.
-- **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently **Phases 0–3 complete** — the POS storefront loop is shippable (sell / split tender / discount / park / receipt / return / blind close). Next = **Phase 4 Marketplace import** — Issues #29–#37 published; `ref doc/` is restored — remaining queue: #33 Lazada + #34 TikTok importers, then #35 Cancellation Reason.
+- **`docs/ROADMAP.md`** — build order (dependency-first, no-rework). Currently **Phases 0–4 complete** — POS storefront loop shippable + marketplace import live (Shopee/Lazada/TikTok order Excel/CSV → mirror Orders, Reserved reconcile, oversell alert, stock export; `ref doc/` is the local-only importer reference). Next = **Phase 5 Returns** (no Issues filed yet — decompose with `all-ecom-to-issues` first).
 
 ## Stack (locked — changing it requires an ADR)
 Laravel 13 · Filament 5 (back-office) · Livewire 4 + Alpine (POS) · PostgreSQL · deploy Forge/Ploi → Hetzner.

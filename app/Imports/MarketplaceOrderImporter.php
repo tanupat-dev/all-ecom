@@ -4,6 +4,8 @@ namespace App\Imports;
 
 use App\Actions\Listings\ResolvePlatformSku;
 use App\Actions\Orders\ImportMarketplaceOrder;
+use App\Enums\CancelledBy;
+use App\Enums\CancelReasonCategory;
 use App\Enums\OrderStatus;
 use App\Listings\UnresolvedPlatformSkuException;
 use App\Models\ImportJob;
@@ -47,7 +49,7 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
      * anything unmappable.
      *
      * @param  array<string, mixed>  $row
-     * @return array{order_id: string, native_status: string, platform_sku: string, qty: int, unit_price: string, milestones: array<string, DateTimeInterface|null>, tracking_number: ?string, buyer_name: ?string, line_total?: Money}
+     * @return array{order_id: string, native_status: string, platform_sku: string, qty: int, unit_price: string, milestones: array<string, DateTimeInterface|null>, tracking_number: ?string, buyer_name: ?string, line_total?: Money, cancelled_by?: ?CancelledBy, cancel_reason_category?: ?CancelReasonCategory, cancel_reason_source?: ?string}
      */
     abstract protected function normalizeRow(array $row, int $rowNumber): array;
 
@@ -84,6 +86,9 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
             'milestones' => $normalized['milestones'],
             'tracking_number' => $normalized['tracking_number'],
             'buyer_name' => $normalized['buyer_name'],
+            'cancelled_by' => $normalized['cancelled_by'] ?? null,
+            'cancel_reason_category' => $normalized['cancel_reason_category'] ?? null,
+            'cancel_reason_source' => $normalized['cancel_reason_source'] ?? null,
         ];
     }
 
@@ -107,6 +112,9 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
             $milestones = $first['milestones'];
             $tracking = $first['tracking_number'];
             $buyer = $first['buyer_name'];
+            $cancelledBy = $first['cancelled_by'] ?? null;
+            $cancelCategory = $first['cancel_reason_category'] ?? null;
+            $cancelSource = $first['cancel_reason_source'] ?? null;
 
             if (! $status instanceof OrderStatus || ! is_array($milestones)) {
                 throw new LogicException('normalizeRow shape drifted.');
@@ -140,6 +148,9 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
                 milestones: $milestones,
                 trackingNumber: is_string($tracking) && $tracking !== '' ? $tracking : null,
                 buyerName: is_string($buyer) && $buyer !== '' ? $buyer : null,
+                cancelledBy: $cancelledBy instanceof CancelledBy ? $cancelledBy : null,
+                cancelReasonCategory: $cancelCategory instanceof CancelReasonCategory ? $cancelCategory : null,
+                cancelReasonSource: is_string($cancelSource) && $cancelSource !== '' ? $cancelSource : null,
             ), mergeLines: isset($this->upsertedOrders[$orderId]));
 
             $this->upsertedOrders[$orderId] = true;

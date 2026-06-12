@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Casts\MoneyCast;
+use App\Enums\CancelledBy;
+use App\Enums\CancelReasonCategory;
 use App\Enums\OrderStatus;
 use App\Enums\PlatformType;
 use App\Models\Concerns\TracksCreatedBy;
@@ -33,6 +35,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $receipt_no
  * @property Money|null $cart_discount
  * @property int|null $ref_order_id
+ * @property CancelledBy|null $cancelled_by
+ * @property CancelReasonCategory|null $cancel_reason_category
+ * @property string|null $cancel_reason_source
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
  * @property Carbon|null $shipped_date
@@ -59,6 +64,7 @@ class Order extends Model
         'shop_id', 'platform_type', 'platform_order_id', 'status', 'total',
         'tracking_number', 'buyer_name', 'buyer_phone',
         'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
+        'cancelled_by', 'cancel_reason_category', 'cancel_reason_source',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -67,6 +73,8 @@ class Order extends Model
         return [
             'platform_type' => PlatformType::class,
             'status' => OrderStatus::class,
+            'cancelled_by' => CancelledBy::class,
+            'cancel_reason_category' => CancelReasonCategory::class,
             'total' => MoneyCast::class,
             'cart_discount' => MoneyCast::class,
             'created_date' => 'datetime',

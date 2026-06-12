@@ -35,6 +35,17 @@ class OrderResource extends Resource
                 ->label('ยอดรวม (บาท)')
                 ->state(fn (Order $record): string => $record->total?->toBaht() ?? '-'),
             TextColumn::make('created_date')->label('วันที่สั่ง')->dateTime()->sortable(),
+            // CONTEXT.md: Cancellation Reason — the Seller Cancellation
+            // Rate drilldown; raw platform text in the tooltip.
+            TextColumn::make('cancelled_by')
+                ->label('ยกเลิกโดย')
+                ->badge()
+                ->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('cancel_reason_category')
+                ->label('เหตุผลยกเลิก')
+                ->badge()
+                ->tooltip(fn (Order $record): ?string => $record->cancel_reason_source)
+                ->toggleable(isToggledHiddenByDefault: true),
         ]);
     }
 

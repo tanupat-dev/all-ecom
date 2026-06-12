@@ -2,6 +2,8 @@
 
 namespace App\Imports;
 
+use App\Enums\CancelledBy;
+use App\Enums\CancelReasonCategory;
 use App\Enums\OrderStatus;
 use App\Support\Money;
 
@@ -28,6 +30,33 @@ class TiktokOrderImporter extends MarketplaceOrderImporter
         'จัดส่งสำเร็จ' => OrderStatus::Delivered,
         'เสร็จสมบูรณ์' => OrderStatus::Completed,
         'ยกเลิกแล้ว' => OrderStatus::Cancelled,
+    ];
+
+    /** TikTok gives attribution and reason as two columns (CONTEXT.md). */
+    private const CANCELLED_BY_MAP = [
+        'User' => CancelledBy::Buyer,
+        'Seller' => CancelledBy::Seller,
+        'System' => CancelledBy::System,
+    ];
+
+    /**
+     * Raw reason → canonical bucket, exactly the values observed in the
+     * reference export; `other` only via these explicit entries (ADR 0005).
+     */
+    private const CANCEL_REASON_MAP = [
+        'ไม่ต้องการแล้ว' => CancelReasonCategory::BuyerChangedMind,
+        'มีราคาที่ดีกว่า' => CancelReasonCategory::BuyerChangedMind,
+        'ค่าจัดส่งแพง' => CancelReasonCategory::BuyerChangedMind,
+        'สินค้าหมด' => CancelReasonCategory::OutOfStock,
+        'ข้อผิดพลาดในการกำหนดราคา' => CancelReasonCategory::PricingError,
+        'การจัดส่งพัสดุไม่สำเร็จ' => CancelReasonCategory::FailedDelivery,
+        'จำเป็นต้องเปลี่ยนที่อยู่จัดส่ง' => CancelReasonCategory::AddressChange,
+        'ต้องการเปลี่ยนวิธีการชำระเงิน' => CancelReasonCategory::PaymentIssue,
+        'วิธีการชำระเงินไม่พร้อมใช้งาน' => CancelReasonCategory::PaymentIssue,
+        'ลูกค้าปล่อยไว้จนเกินกำหนดชำระเงิน' => CancelReasonCategory::PaymentIssue,
+        'จำเป็นต้องเปลี่ยนสีหรือขนาด' => CancelReasonCategory::Other,
+        'ต้องการใช้คูปองในการสั่งซื้อ' => CancelReasonCategory::Other,
+        'ผู้ขายไม่ตอบคำถาม' => CancelReasonCategory::Other,
     ];
 
     public function map(string $nativeStatus): OrderStatus
@@ -63,7 +92,30 @@ class TiktokOrderImporter extends MarketplaceOrderImporter
             // PII minimised: the buyer username only — recipient, phone,
             // and address never leave the file.
             'buyer_name' => $this->cell($row, 'Buyer Username'),
+            'cancelled_by' => $this->cancelledBy($this->cell($row, 'Cancel By')),
+            'cancel_reason_category' => $this->cancelCategory($this->cell($row, 'Cancel Reason')),
+            'cancel_reason_source' => $this->cell($row, 'Cancel Reason') ?: null,
         ];
+    }
+
+    private function cancelledBy(string $raw): ?CancelledBy
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        return self::CANCELLED_BY_MAP[$raw]
+            ?? throw new RowImportException("ระบบไม่รองรับ — unmapped TikTok Cancel By [{$raw}].");
+    }
+
+    private function cancelCategory(string $raw): ?CancelReasonCategory
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        return self::CANCEL_REASON_MAP[$raw]
+            ?? throw new RowImportException("ระบบไม่รองรับ — unmapped TikTok cancel reason [{$raw}].");
     }
 
     /**

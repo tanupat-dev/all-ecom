@@ -109,7 +109,9 @@ class RunImportJob implements ShouldQueue
      */
     private function rows(ImportJob $importJob): iterable
     {
-        $reader = $this->readerFor($importJob->stored_path);
+        // The stored name's extension comes from a MIME sniff (a CSV can
+        // land as .txt) — the uploader's original filename is the truth.
+        $reader = $this->readerFor($importJob->original_filename);
         $reader->open(Storage::disk('local')->path($importJob->stored_path));
 
         try {
@@ -150,9 +152,9 @@ class RunImportJob implements ShouldQueue
      * Both spreadsheet formats platforms export (TikTok orders are CSV,
      * the rest xlsx) stream through the same row contract.
      */
-    private function readerFor(string $storedPath): CsvReader|XlsxReader
+    private function readerFor(string $filename): CsvReader|XlsxReader
     {
-        return strtolower(pathinfo($storedPath, PATHINFO_EXTENSION)) === 'csv'
+        return strtolower(pathinfo($filename, PATHINFO_EXTENSION)) === 'csv'
             ? new CsvReader
             : new XlsxReader;
     }
