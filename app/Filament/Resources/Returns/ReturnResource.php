@@ -2,9 +2,14 @@
 
 namespace App\Filament\Resources\Returns;
 
+use App\Actions\Returns\RecordInboundScan;
+use App\Enums\ReturnType;
 use App\Filament\Resources\Returns\Pages\ListReturns;
 use App\Models\OrderReturn;
+use App\Models\ReturnLine;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -39,6 +44,31 @@ class ReturnResource extends Resource
                 ->tooltip(fn (OrderReturn $record): ?string => $record->buyer_note)
                 ->limit(30),
             TextColumn::make('requested_at')->label('ยื่นคำขอเมื่อ')->dateTime()->sortable(),
+        ])->recordActions([
+            // Stock comes back ONLY on the physical scan (CONTEXT.md:
+            // Inbound Scan) — the condition check routes damaged units.
+            Action::make('inboundScan')
+                ->label('สแกนรับของเข้าร้าน')
+                ->icon('heroicon-o-qr-code')
+                ->visible(fn (OrderReturn $record): bool => ! $record->sub_status->isTerminal()
+                    && $record->return_type !== ReturnType::RefundOnly)
+                ->authorize(fn (OrderReturn $record): bool => auth()->user()?->can('update', $record) ?? false)
+                ->schema([
+                    CheckboxList::make('damaged')
+                        ->label('รายการที่ชำรุด (ถ้ามี)')
+                        ->options(fn (OrderReturn $record): array => $record->lines()
+                            ->with('orderLine.variant')
+                            ->get()
+                            ->mapWithKeys(fn (ReturnLine $line): array => [
+                                $line->id => $line->orderLine()->firstOrFail()->variant()->firstOrFail()->master_sku." × {$line->qty}",
+                            ])
+                            ->all()),
+                ])
+                ->action(function (OrderReturn $record, array $data): void {
+                    $damaged = array_map(intval(...), (array) ($data['damaged'] ?? []));
+
+                    app(RecordInboundScan::class)->handle($record, $damaged);
+                }),
         ]);
     }
 
