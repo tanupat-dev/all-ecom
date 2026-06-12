@@ -35,6 +35,11 @@ class ShopPolicy
         return $user->checkPermissionTo('shop.edit');
     }
 
+    public function importOrders(User $user, Shop $shop): bool
+    {
+        return $user->checkPermissionTo('order.import');
+    }
+
     /**
      * Downloading the Shop's stock-update Excel exposes stock numbers —
      * the same gate as reading them.

@@ -24,8 +24,10 @@ class StartImport
      * type system.
      *
      * @param  class-string  $importerClass
+     * @param  array<string, mixed>  $context  run-time facts the file cannot
+     *                                         carry (e.g. the target shop_id)
      */
-    public function handle(UploadedFile $file, string $importerClass): ImportJob
+    public function handle(UploadedFile $file, string $importerClass, array $context = []): ImportJob
     {
         if (! is_subclass_of($importerClass, Importer::class)) {
             throw new InvalidArgumentException("[{$importerClass}] must implement ".Importer::class);
@@ -42,6 +44,7 @@ class StartImport
             'original_filename' => $file->getClientOriginalName(),
             'stored_path' => $storedPath,
             'status' => ImportJobStatus::Pending,
+            'context' => $context === [] ? null : $context,
         ]);
 
         RunImportJob::dispatch($importJob->id, $tenant->id);

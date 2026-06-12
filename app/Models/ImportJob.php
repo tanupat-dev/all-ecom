@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $processed_rows
  * @property int $error_rows
  * @property list<array{row: int, message: string}>|null $errors
+ * @property array<string, mixed>|null $context
  * @property int|null $created_by
  */
 class ImportJob extends Model
@@ -35,6 +36,7 @@ class ImportJob extends Model
         'processed_rows',
         'error_rows',
         'errors',
+        'context',
     ];
 
     protected function casts(): array
@@ -42,6 +44,7 @@ class ImportJob extends Model
         return [
             'status' => ImportJobStatus::class,
             'errors' => 'array',
+            'context' => 'array',
         ];
     }
 }

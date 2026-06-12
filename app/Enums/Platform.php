@@ -2,6 +2,9 @@
 
 namespace App\Enums;
 
+use App\Imports\MarketplaceOrderImporter;
+use App\Imports\ShopeeOrderImporter;
+
 /**
  * The concrete sales channels (CONTEXT.md: Platform).
  */
@@ -32,5 +35,19 @@ enum Platform: string
     public function payoutAnchor(): string
     {
         return $this === self::Shopee ? 'completed_date' : 'delivered_date';
+    }
+
+    /**
+     * The order-export Importer for this marketplace (ROADMAP Phase 4);
+     * null until the platform's importer ships (#33 Lazada, #34 TikTok).
+     *
+     * @return class-string<MarketplaceOrderImporter>|null
+     */
+    public function orderImporter(): ?string
+    {
+        return match ($this) {
+            self::Shopee => ShopeeOrderImporter::class,
+            default => null,
+        };
     }
 }
