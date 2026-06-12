@@ -47,6 +47,10 @@ it('gives every non-exempt table a tenant_id column', function () {
 });
 
 it('enables and forces RLS on every table that has tenant_id', function () {
+    // users carries tenant_id (Phase 2 tie) but stays RLS-free: auth must
+    // resolve the user BEFORE any tenant context exists to read it.
+    $rlsFreeWithTenantId = ['users'];
+
     $unprotected = collect(DB::select(<<<'SQL'
         select c.relname
         from pg_class c
@@ -59,7 +63,7 @@ it('enables and forces RLS on every table that has tenant_id', function () {
               and col.column_name = 'tenant_id'
           )
           and not (c.relrowsecurity and c.relforcerowsecurity)
-        SQL))->pluck('relname');
+        SQL))->pluck('relname')->diff($rlsFreeWithTenantId);
 
     expect($unprotected->all())->toBe([]);
 });

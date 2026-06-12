@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Tenancy\ResolveTenantFromUser;
 use App\Tenancy\TenantContext;
 use Filament\Support\Facades\FilamentTimezone;
+use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Event;
@@ -43,5 +45,8 @@ class AppServiceProvider extends ServiceProvider
                 app(TenantContext::class)->applyToConnection($event->connectionName);
             }
         });
+
+        // Tenant resolve at login (ROADMAP Phase 2).
+        Event::listen(Authenticated::class, ResolveTenantFromUser::class);
     }
 }

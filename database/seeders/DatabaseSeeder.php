@@ -2,25 +2,31 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Tenants\CreateTenant;
+use App\Models\Tenant;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
+    // No WithoutModelEvents here: the tenancy/audit creating-hooks
+    // (BelongsToTenant, TracksCreatedBy) MUST run while seeding.
 
     /**
      * Seed the application's database. Idempotent — safe to re-run.
      */
     public function run(): void
     {
+        $tenant = Tenant::query()->firstWhere('name', 'ร้านเดโม่')
+            ?? app(CreateTenant::class)->handle('ร้านเดโม่');
+
         User::query()->firstOrCreate(
             ['email' => 'admin@all-ecom.test'],
             [
                 'name' => 'Admin',
                 'password' => Hash::make('password'),
+                'tenant_id' => $tenant->id,
             ],
         );
     }
