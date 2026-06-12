@@ -5,7 +5,6 @@ use App\Tenancy\BelongsToTenant;
 use App\Tenancy\Rls;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -67,70 +66,7 @@ it('fills tenant_id from the current tenant context on create', function () {
 });
 
 it('scopes every query to the current tenant', function () {
-    [$a, $b] = createTwoTenantsWithOneItemEach();
-
-    app(TenantContext::class)->set($a);
-
-    expect(TenancyTestItem::query()->pluck('label')->all())->toBe(['a-item']);
-
-    app(TenantContext::class)->set($b);
-
-    expect(TenancyTestItem::query()->pluck('label')->all())->toBe(['b-item']);
-});
-
-it('RLS fails closed: with no tenant context the database returns zero rows', function () {
-    createTwoTenantsWithOneItemEach();
-
-    expect(DB::table('tenancy_test_items')->count())->toBe(0);
-});
-
-it('RLS hides the other tenant even when the query bypasses Eloquent', function () {
-    [$a] = createTwoTenantsWithOneItemEach();
-
-    app(TenantContext::class)->set($a);
-
-    expect(DB::table('tenancy_test_items')->pluck('label')->all())->toBe(['a-item']);
-});
-
-it('RLS blocks reading, updating and deleting the other tenant\'s rows', function () {
-    [$a, $b] = createTwoTenantsWithOneItemEach();
-
-    app(TenantContext::class)->set($b);
-    $bItemId = TenancyTestItem::query()->firstOrFail()->id;
-    expect($bItemId)->toBeGreaterThan(0);
-
-    app(TenantContext::class)->set($a);
-
-    expect(DB::table('tenancy_test_items')->where('id', $bItemId)->exists())->toBeFalse()
-        ->and(DB::table('tenancy_test_items')->where('id', $bItemId)->update(['label' => 'stolen']))->toBe(0)
-        ->and(DB::table('tenancy_test_items')->where('id', $bItemId)->delete())->toBe(0);
-
-    app(TenantContext::class)->set($b);
-
-    expect(DB::table('tenancy_test_items')->where('id', $bItemId)->value('label'))->toBe('b-item');
-});
-
-it('RLS rejects writing a row for another tenant (WITH CHECK)', function () {
-    [$a, $b] = createTwoTenantsWithOneItemEach();
-
-    app(TenantContext::class)->set($a);
-
-    // A savepoint keeps the test's outer transaction usable after the
-    // expected policy violation.
-    DB::transaction(function () use ($b) {
-        DB::table('tenancy_test_items')->insert(['tenant_id' => $b->id, 'label' => 'planted']);
-    });
-})->throws(QueryException::class, 'row-level security policy');
-
-/**
- * Seeds one item for each of two tenants.
- *
- * @return array{Tenant, Tenant}
- */
-function createTwoTenantsWithOneItemEach(): array
-{
     $context = app(TenantContext::class);
-
     $a = Tenant::query()->create(['name' => 'A']);
     $b = Tenant::query()->create(['name' => 'B']);
 
@@ -140,7 +76,15 @@ function createTwoTenantsWithOneItemEach(): array
     $context->set($b);
     TenancyTestItem::query()->create(['label' => 'b-item']);
 
-    $context->forget();
+    $context->set($a);
+    expect(TenancyTestItem::query()->pluck('label')->all())->toBe(['a-item']);
 
-    return [$a, $b];
-}
+    $context->set($b);
+    expect(TenancyTestItem::query()->pluck('label')->all())->toBe(['b-item']);
+});
+
+// Scope fail-closed, raw-query blocking, and WITH CHECK are proven by the
+// shared harness every tenant-scoped table must call (Issue #7).
+it('passes the cross-tenant isolation harness', function () {
+    assertTenantIsolation(fn (): TenancyTestItem => TenancyTestItem::query()->create(['label' => 'harness-item']));
+});
