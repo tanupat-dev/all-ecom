@@ -108,22 +108,28 @@ it('holds Lost by 3PL — no canonical state fits a lost parcel, so it is delibe
     app(LazadaOrderImporter::class)->map('Lost by 3PL');
 })->throws(UnmappedPlatformStatusException::class, 'Lost by 3PL');
 
-it('imports a Lazada export: per-unit rows aggregate, Effective Price nets the seller discount, delivered_date lands in UTC', function () {
-    $shop = lazadaShop();
-
-    /** @param array<string, string> $extra */
-    $unit = fn (string $order, string $sku, string $status, array $extra = []): array => $extra + [
+/**
+ * @param  array<string, string>  $extra
+ * @return array<string, string>
+ */
+function lazadaUnitRow(string $order, string $sku, string $status, array $extra = []): array
+{
+    return $extra + [
         'orderNumber' => $order, 'sellerSku' => $sku, 'status' => $status,
         'createTime' => '03 Jun 2026 20:41', 'unitPrice' => '235.00',
         'customerName' => 'น***า',
     ];
+}
+
+it('imports a Lazada export: per-unit rows aggregate, Effective Price nets the seller discount, delivered_date lands in UTC', function () {
+    $shop = lazadaShop();
 
     $file = new UploadedFile(writeLazadaXlsx([
         // Two units of M = two rows (Lazada is one row per unit) with a
         // seller-funded discount; the platform subsidy must NOT reduce it.
-        $unit('LZ-1', 'TS-RED-M', 'confirmed', ['sellerDiscountTotal' => '-23.50', 'platformDiscountTotal' => '-11.75', 'deliveredDate' => '27 May 2026 13:21', 'trackingCode' => 'TH55001']),
-        $unit('LZ-1', 'TS-RED-M', 'confirmed', ['sellerDiscountTotal' => '-23.50', 'platformDiscountTotal' => '-11.75', 'deliveredDate' => '27 May 2026 13:21', 'trackingCode' => 'TH55001']),
-        $unit('LZ-2', 'TS-RED-L', 'shipped'),
+        lazadaUnitRow('LZ-1', 'TS-RED-M', 'confirmed', ['sellerDiscountTotal' => '-23.50', 'platformDiscountTotal' => '-11.75', 'deliveredDate' => '27 May 2026 13:21', 'trackingCode' => 'TH55001']),
+        lazadaUnitRow('LZ-1', 'TS-RED-M', 'confirmed', ['sellerDiscountTotal' => '-23.50', 'platformDiscountTotal' => '-11.75', 'deliveredDate' => '27 May 2026 13:21', 'trackingCode' => 'TH55001']),
+        lazadaUnitRow('LZ-2', 'TS-RED-L', 'shipped'),
     ]), 'orders.xlsx', null, null, true);
 
     $job = app(StartImport::class)->handle($file, LazadaOrderImporter::class, ['shop_id' => $shop->id]);
