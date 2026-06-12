@@ -45,5 +45,10 @@ For any **substantial / multi-slice** work (a feature, a phase, a refactor — n
   - **`format-worker` (Haiku)** — mechanical: formatting, renames, boilerplate, doc sweeps.
 - **Keep the planner strong** — never blanket-set `CLAUDE_CODE_SUBAGENT_MODEL` (it downgrades the planner too → compounding errors). Route per slice instead.
 - Each worker follows the full process (CONVENTIONS + TDD + search-before-write + the money/stock/security checks); the **orchestrator verifies and owns commit + the consistency sweep**.
+- **Parallel waves (timing levers — measured 2026-06-13):**
+  - Independent slices run **in parallel** — each worker gets its own test DB via `DB_DATABASE=all_ecom_test_wN php artisan test --filter=...` (w1–w4 exist on :5434; phpunit env does not force-override). Parallel workers in one checkout must create **new files only** — the orchestrator wires shared touchpoints (enums/registries/Filament tables) afterward. Sequential is still right when slices edit the same files.
+  - **Gates run once**: workers run only their slice's filtered tests (+ Pint on touched files); the orchestrator runs the single authoritative full pass (Pint · Larastan max · full Pest) before each commit.
+  - The orchestrator pre-reads shared schemas/patterns (e.g. a `ref doc/` file's real layout, a sibling slice to mirror) and pastes them into the worker prompt — measured ~2× faster than letting each worker re-derive.
+  - For slices touching uploads/RBAC/tenancy, embed the relevant `all-ecom-security-check` items in the spec up front (avoids a rework round).
 
 This is a working-style convention (read every session), not a hook — the one knob the human sets is the main-session model.
