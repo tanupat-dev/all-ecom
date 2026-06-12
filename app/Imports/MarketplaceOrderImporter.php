@@ -99,7 +99,7 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
         }
 
         foreach ($byOrder as $orderId => $rows) {
-            $first = $rows[0];
+            ['header' => $first, 'lines' => $rows] = $this->consolidateOrder($rows);
             $status = $first['status'];
             $milestones = $first['milestones'];
             $tracking = $first['tracking_number'];
@@ -138,6 +138,30 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
     }
 
     /**
+     * Reduce one order's mapped rows to the header row its order-level
+     * fields come from and the rows that become Order Lines. The default
+     * suits order-level-status exports (Shopee); an item-level-status
+     * export (Lazada) overrides to handle partial cancels.
+     *
+     * @param  non-empty-list<array<string, mixed>>  $rows
+     * @return array{header: array<string, mixed>, lines: non-empty-list<array<string, mixed>>}
+     */
+    protected function consolidateOrder(array $rows): array
+    {
+        return ['header' => $rows[0], 'lines' => $rows];
+    }
+
+    /**
+     * The timestamp formats this platform's export writes, tried in order.
+     *
+     * @return non-empty-list<string>
+     */
+    protected function dateFormats(): array
+    {
+        return ['Y-m-d H:i:s', 'Y-m-d H:i'];
+    }
+
+    /**
      * Platform exports carry Thai wall-clock timestamps; we store UTC
      * (ROADMAP Phase 0: Time). An unparseable non-empty value is fail-loud,
      * never guessed (ADR 0005).
@@ -152,7 +176,7 @@ abstract class MarketplaceOrderImporter implements Importer, ImportJobAware, Pla
 
         $bangkok = new DateTimeZone('Asia/Bangkok');
 
-        foreach (['Y-m-d H:i:s', 'Y-m-d H:i'] as $format) {
+        foreach ($this->dateFormats() as $format) {
             $parsed = DateTimeImmutable::createFromFormat($format, $text, $bangkok);
 
             if ($parsed !== false) {

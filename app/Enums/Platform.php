@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Imports\LazadaOrderImporter;
 use App\Imports\MarketplaceOrderImporter;
 use App\Imports\ShopeeOrderImporter;
 
@@ -39,7 +40,7 @@ enum Platform: string
 
     /**
      * The order-export Importer for this marketplace (ROADMAP Phase 4);
-     * null until the platform's importer ships (#33 Lazada, #34 TikTok).
+     * null until the platform's importer ships (#34 TikTok).
      *
      * @return class-string<MarketplaceOrderImporter>|null
      */
@@ -47,6 +48,7 @@ enum Platform: string
     {
         return match ($this) {
             self::Shopee => ShopeeOrderImporter::class,
+            self::Lazada => LazadaOrderImporter::class,
             default => null,
         };
     }
