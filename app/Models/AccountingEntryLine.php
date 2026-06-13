@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Casts\MoneyCast;
-use App\Enums\FeeCategory;
+use App\Enums\AccountingLineCategory;
 use App\Models\Concerns\TracksCreatedBy;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $order_id
  * @property string $statement_cycle
  * @property string $source_field
- * @property FeeCategory $category
+ * @property AccountingLineCategory $category
  * @property Money $amount
  */
 class AccountingEntryLine extends Model
@@ -36,7 +36,7 @@ class AccountingEntryLine extends Model
     {
         return [
             'amount' => MoneyCast::class,
-            'category' => FeeCategory::class,
+            'category' => AccountingLineCategory::class,
         ];
     }
 

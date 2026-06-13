@@ -3,7 +3,7 @@
 use App\Actions\Accounting\UpsertAccountingCycle;
 use App\Actions\Shops\CreateShop;
 use App\Actions\Tenants\CreateTenant;
-use App\Enums\FeeCategory;
+use App\Enums\AccountingLineCategory;
 use App\Enums\OrderStatus;
 use App\Enums\Platform;
 use App\Enums\PlatformType;
@@ -51,8 +51,8 @@ function accountingPosOrder(): Order
 it('replaces the same cycle idempotently — re-importing never double-counts', function () {
     $order = accountingOrder();
     $lines = [
-        ['source_field' => 'ยอดขายสินค้า', 'category' => FeeCategory::Other, 'amount' => Money::fromBaht('100')],
-        ['source_field' => 'ค่าคอมมิชชั่น', 'category' => FeeCategory::Commission, 'amount' => Money::fromBaht('-10')],
+        ['source_field' => 'ยอดขายสินค้า', 'category' => AccountingLineCategory::Other, 'amount' => Money::fromBaht('100')],
+        ['source_field' => 'ค่าคอมมิชชั่น', 'category' => AccountingLineCategory::Commission, 'amount' => Money::fromBaht('-10')],
     ];
 
     app(UpsertAccountingCycle::class)->handle($order, 'CYCLE-2026-05', $lines);
@@ -66,11 +66,11 @@ it('appends a later cycle without touching the first cycle, summing Actual Net a
     $order = accountingOrder();
 
     app(UpsertAccountingCycle::class)->handle($order, 'CYCLE-2026-05', [
-        ['source_field' => 'ยอดขายสินค้า', 'category' => FeeCategory::Other, 'amount' => Money::fromBaht('100')],
+        ['source_field' => 'ยอดขายสินค้า', 'category' => AccountingLineCategory::Other, 'amount' => Money::fromBaht('100')],
     ]);
 
     app(UpsertAccountingCycle::class)->handle($order, 'CYCLE-2026-06', [
-        ['source_field' => 'ค่าส่งคืนสินค้า', 'category' => FeeCategory::ShippingReturn, 'amount' => Money::fromBaht('-30')],
+        ['source_field' => 'ค่าส่งคืนสินค้า', 'category' => AccountingLineCategory::ShippingReturn, 'amount' => Money::fromBaht('-30')],
     ]);
 
     expect($order->accountingEntryLines()->count())->toBe(2)
@@ -82,8 +82,8 @@ it('lets a negative amount reduce Actual Net, exact in integer satang', function
     $order = accountingOrder();
 
     app(UpsertAccountingCycle::class)->handle($order, 'CYCLE-2026-05', [
-        ['source_field' => 'ยอดขายสินค้า', 'category' => FeeCategory::Other, 'amount' => Money::fromBaht('100')],
-        ['source_field' => 'ค่าธรรมเนียมชำระเงิน', 'category' => FeeCategory::PaymentFee, 'amount' => Money::fromBaht('-25.50')],
+        ['source_field' => 'ยอดขายสินค้า', 'category' => AccountingLineCategory::Other, 'amount' => Money::fromBaht('100')],
+        ['source_field' => 'ค่าธรรมเนียมชำระเงิน', 'category' => AccountingLineCategory::PaymentFee, 'amount' => Money::fromBaht('-25.50')],
     ]);
 
     $actualNet = $order->refresh()->actual_net;
@@ -96,7 +96,7 @@ it('refuses a POS Order — its P&L is computed directly, never via accounting l
     $order = accountingPosOrder();
 
     app(UpsertAccountingCycle::class)->handle($order, 'CYCLE-2026-05', [
-        ['source_field' => 'x', 'category' => FeeCategory::Other, 'amount' => Money::fromBaht('100')],
+        ['source_field' => 'x', 'category' => AccountingLineCategory::Other, 'amount' => Money::fromBaht('100')],
     ]);
 })->throws(InvalidArgumentException::class, 'A POS Order has no Accounting Entry');
 
@@ -119,7 +119,7 @@ it('passes the cross-tenant isolation harness (accounting entry lines)', functio
             'order_id' => $order->id,
             'statement_cycle' => 'CYCLE-H',
             'source_field' => 'ยอดขายสินค้า',
-            'category' => FeeCategory::Other,
+            'category' => AccountingLineCategory::Other,
             'amount' => Money::fromBaht('100'),
         ]);
     });

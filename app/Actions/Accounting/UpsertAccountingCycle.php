@@ -2,7 +2,7 @@
 
 namespace App\Actions\Accounting;
 
-use App\Enums\FeeCategory;
+use App\Enums\AccountingLineCategory;
 use App\Enums\PlatformType;
 use App\Models\AccountingEntryLine;
 use App\Models\Order;
@@ -24,7 +24,7 @@ use InvalidArgumentException;
 class UpsertAccountingCycle
 {
     /**
-     * @param  array<int, array{source_field: string, category: FeeCategory, amount: Money}>  $lines
+     * @param  array<int, array{source_field: string, category: AccountingLineCategory, amount: Money}>  $lines
      */
     public function handle(Order $order, string $statementCycle, array $lines): void
     {
