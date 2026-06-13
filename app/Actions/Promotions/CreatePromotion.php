@@ -23,6 +23,8 @@ use InvalidArgumentException;
  *  - a campaign requires both start_at and end_at with start_at < end_at;
  *  - a base must carry no time window (it is always active);
  *  - a base may not touch a Shop that already has an active base Promotion;
+ *  - no two campaign lines on one Listing-Variant may overlap in time
+ *    (the MVP one-active-line invariant; CONTEXT.md);
  *  - at most one line per Listing-Variant per Promotion;
  *  - Deal Price is integer satang and never negative (ADR 0015).
  */
@@ -49,6 +51,13 @@ class CreatePromotion
         return DB::transaction(function () use ($type, $name, $lines, $startAt, $endAt): Promotion {
             if ($type === PromotionType::Base) {
                 $this->guardSingleActiveBasePerShop($lines);
+            }
+
+            if ($type === PromotionType::Campaign) {
+                // guardWindow already proved both bounds are non-null here;
+                // assert() narrows the types for the analyser.
+                assert($startAt !== null && $endAt !== null);
+                $this->guardNoOverlappingCampaign($lines, $startAt, $endAt);
             }
 
             $promotion = Promotion::query()->create([
@@ -132,6 +141,41 @@ class CreatePromotion
         if ($conflict) {
             throw new InvalidArgumentException(
                 'A Shop already has an active base Promotion (CONTEXT.md: at most one active base Promotion per Shop).'
+            );
+        }
+    }
+
+    /**
+     * The MVP one-active-line invariant (CONTEXT.md): at any time T a
+     * Listing-Variant has exactly one active Promotion Line. A base always
+     * coexists with at most one in-window campaign (resolution picks the
+     * campaign — fine), but two campaign lines on the same Listing-Variant must
+     * not overlap. Two half-open windows [s1,e1) and [s2,e2) overlap iff
+     * s1 < e2 AND s2 < e1 — back-to-back windows that merely touch at a
+     * boundary (e1 == s2) do NOT overlap (the end is exclusive). Fail loud
+     * (ADR 0005 posture) before any insert.
+     *
+     * @param  list<PromotionLineInput>  $lines
+     */
+    private function guardNoOverlappingCampaign(array $lines, DateTimeInterface $startAt, DateTimeInterface $endAt): void
+    {
+        $listingVariantIds = array_values(array_unique(
+            array_map(static fn (PromotionLineInput $line): int => $line->listingVariant->id, $lines)
+        ));
+
+        $overlap = PromotionLine::query()
+            ->whereIn('listing_variant_id', $listingVariantIds)
+            ->whereHas('promotion', static function (Builder $query) use ($startAt, $endAt): void {
+                $query->where('type', PromotionType::Campaign->value)
+                    ->where('start_at', '<', $endAt)
+                    ->where('end_at', '>', $startAt);
+            })
+            ->exists();
+
+        if ($overlap) {
+            throw new InvalidArgumentException(
+                'A campaign Promotion Line already overlaps this window on the same Listing-Variant '
+                .'(CONTEXT.md: exactly one active Promotion Line at T — no overlapping campaigns).'
             );
         }
     }

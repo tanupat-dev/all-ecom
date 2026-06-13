@@ -66,7 +66,7 @@ it('writes the same Available to every Platform SKU of one Variant — one share
     $a = exportListedVariant($shop, 'EX-1', 5);
     // The seller relisted the same Product; one mapping carries a legacy code.
     $second = app(CreateListing::class)->handle($shop, $a->product()->firstOrFail());
-    app(UpdateListingVariant::class)->handle($second->variants()->firstOrFail(), 'OLD-CODE-1', null);
+    app(UpdateListingVariant::class)->handle($second->variants()->firstOrFail(), 'OLD-CODE-1');
 
     $rows = app(ExportShopStock::class)->handle($shop);
 
