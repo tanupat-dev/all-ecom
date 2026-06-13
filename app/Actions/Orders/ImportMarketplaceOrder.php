@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Actions\Accounting\ComputeExpectedNet;
 use App\Enums\OrderStatus;
 use App\Enums\PlatformType;
 use App\Imports\NormalizedOrder;
@@ -27,6 +28,7 @@ class ImportMarketplaceOrder
         private readonly ApplyOrderMilestones $applyMilestones,
         private readonly SetOrderStatus $setStatus,
         private readonly ReconcileImportedOrderStock $reconcileStock,
+        private readonly ComputeExpectedNet $computeExpectedNet,
     ) {}
 
     /**
@@ -128,6 +130,11 @@ class ImportMarketplaceOrder
             } else {
                 $this->reconcileStock->handle($order, $previousStatus, $previousQty, $targetQty);
             }
+
+            // Forward-looking estimate from the Shop's Fee Profile, refreshed
+            // each snapshot since the lines (Effective Price) can change
+            // (#65, CONTEXT.md: Expected Net).
+            $this->computeExpectedNet->handle($order);
 
             return $order->load('lines');
         });

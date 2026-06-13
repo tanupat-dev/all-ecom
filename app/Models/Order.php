@@ -41,6 +41,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $cancel_reason_source
  * @property ReturnSubStatus|null $return_sub_status
  * @property Money|null $actual_net
+ * @property Money|null $expected_net
  * @property Carbon|null $settlement_date
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
@@ -69,7 +70,7 @@ class Order extends Model
         'tracking_number', 'buyer_name', 'buyer_phone',
         'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
         'cancelled_by', 'cancel_reason_category', 'cancel_reason_source', 'return_sub_status',
-        'actual_net', 'settlement_date',
+        'actual_net', 'expected_net', 'settlement_date',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -84,6 +85,7 @@ class Order extends Model
             'total' => MoneyCast::class,
             'cart_discount' => MoneyCast::class,
             'actual_net' => MoneyCast::class,
+            'expected_net' => MoneyCast::class,
             'settlement_date' => 'datetime',
             'created_date' => 'datetime',
             'paid_date' => 'datetime',
