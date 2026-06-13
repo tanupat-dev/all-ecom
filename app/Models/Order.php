@@ -10,8 +10,10 @@ use App\Enums\PlatformType;
 use App\Enums\ReconciliationStatus;
 use App\Enums\ReturnSubStatus;
 use App\Models\Concerns\TracksCreatedBy;
+use App\Observers\OrderObserver;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -54,6 +56,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $cancelled_date
  * @property-read Shop $shop
  */
+#[ObservedBy(OrderObserver::class)]
 class Order extends Model
 {
     use BelongsToTenant;
