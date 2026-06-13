@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Casts\MoneyCast;
 use App\Enums\TenderType;
 use App\Models\Concerns\TracksCreatedBy;
+use App\Observers\PaymentObserver;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property TenderType $tender_type
  * @property Money|null $amount
  */
+#[ObservedBy(PaymentObserver::class)]
 class Payment extends Model
 {
     use BelongsToTenant;

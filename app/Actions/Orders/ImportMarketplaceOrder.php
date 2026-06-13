@@ -3,6 +3,7 @@
 namespace App\Actions\Orders;
 
 use App\Actions\Accounting\ComputeExpectedNet;
+use App\Actions\Accounting\ComputeExpectedPayoutDate;
 use App\Enums\OrderStatus;
 use App\Enums\PlatformType;
 use App\Imports\NormalizedOrder;
@@ -29,6 +30,7 @@ class ImportMarketplaceOrder
         private readonly SetOrderStatus $setStatus,
         private readonly ReconcileImportedOrderStock $reconcileStock,
         private readonly ComputeExpectedNet $computeExpectedNet,
+        private readonly ComputeExpectedPayoutDate $computeExpectedPayoutDate,
     ) {}
 
     /**
@@ -135,6 +137,11 @@ class ImportMarketplaceOrder
             // each snapshot since the lines (Effective Price) can change
             // (#65, CONTEXT.md: Expected Net).
             $this->computeExpectedNet->handle($order);
+
+            // Predicted settlement date: anchor_milestone + hold_period
+            // (CONTEXT.md: Expected Payout Date; Issue #67). Null when the
+            // anchor is not yet set (goods not yet delivered/completed).
+            $this->computeExpectedPayoutDate->handle($order);
 
             return $order->load('lines');
         });

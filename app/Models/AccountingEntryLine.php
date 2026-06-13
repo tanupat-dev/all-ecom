@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Casts\MoneyCast;
 use App\Enums\AccountingLineCategory;
 use App\Models\Concerns\TracksCreatedBy;
+use App\Observers\AccountingEntryLineObserver;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property AccountingLineCategory $category
  * @property Money $amount
  */
+#[ObservedBy(AccountingEntryLineObserver::class)]
 class AccountingEntryLine extends Model
 {
     use BelongsToTenant;

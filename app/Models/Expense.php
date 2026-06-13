@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Casts\MoneyCast;
 use App\Models\Concerns\TracksCreatedBy;
+use App\Observers\ExpenseObserver;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -23,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $note
  * @property int|null $ref_order_id optional — for per-order attributable costs
  */
+#[ObservedBy(ExpenseObserver::class)]
 class Expense extends Model
 {
     use BelongsToTenant;

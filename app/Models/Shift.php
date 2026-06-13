@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Casts\MoneyCast;
 use App\Enums\ShiftStatus;
 use App\Models\Concerns\TracksCreatedBy;
+use App\Observers\ShiftObserver;
 use App\Support\Money;
 use App\Tenancy\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -29,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property Money|null $over_short
  * @property int|null $created_by
  */
+#[ObservedBy(ShiftObserver::class)]
 class Shift extends Model
 {
     use BelongsToTenant;
