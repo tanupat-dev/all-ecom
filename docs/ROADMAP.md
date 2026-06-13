@@ -146,6 +146,8 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 **Exit:** auto-flag a claim from a seller-fault return / shipping overcharge → track it through to close.
 
+**Status:** ✅ complete (Issues #78–#85). Return Reason fault classification (#78, per-platform fail-loud buyer/seller-fault mapping + the Unclassified Return Reasons list); the Claim kernel — model + `ClaimType`/`ClaimStatus` enums (6-state two-stage lifecycle, `isTerminal`), `CreateClaim` with the type↔ref invariant, `claim.view`/`claim.manage` permissions + `ClaimPolicy`, tenant_id + RLS (#79); auto-flag a `return_fee` Claim from a seller-fault Return inside `UpsertReturn`'s transaction (#80); the lifecycle transition state-machine `TransitionClaimStatus` (#81); the Evidence Checklist — default-seeded + seller-extendable, mutable checks (#82); the append-only Claim Timeline (#83); the Claim Filament Resource — list + view + lifecycle/evidence/timeline management (#84); and the `shipping_overcharge` auto-flag with **ADR 0022** (`ComputeExpectedShipping` from catalogue weight/dimensions — `max(actual, volumetric)` ÷ 5000, per-unit-additive, the tiered `expected_shipping_rate` contract, ฿5 tolerance, fail-safe-never-guess) wired into `UpsertAccountingCycle` (#85).
+
 ---
 
 ## Phase 9 — Product Listing / Channel Upload (bounded; ADR 0019)
@@ -175,8 +177,8 @@ Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling
 └─ 1 Catalog+Stock ──┬─ 2 Identity+Shop+Order ──┬─ 3 POS ✅ shippable
                      │                          ├─ 4 Marketplace import
                      │                          │    ├─ 5 Returns
-                     │                          │    │    └─ 8 Claims ─┐
-                     │                          │    └─ 9 Listing / Channel Upload (ADR 0019)
+                     │                          │    │    └─ 8 Claims ✅ ─┐
+                     │                          │    └─ 9 Listing / Channel Upload (ADR 0019) ✅
                      │                          └─ 6 Accounting ✅ ────┘
                      └────────────────────────────── 7 Promotions ✅
 ```
