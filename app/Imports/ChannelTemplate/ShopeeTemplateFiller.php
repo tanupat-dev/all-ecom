@@ -3,6 +3,7 @@
 namespace App\Imports\ChannelTemplate;
 
 use App\Imports\RowImportException;
+use App\Models\ListingVariant;
 use App\Models\Location;
 use App\Models\Shop;
 use App\Models\Variant;
@@ -23,8 +24,10 @@ use Illuminate\Database\Eloquent\Collection;
  * purchase-limit cols, GTIN, size chart, channel/pre-order/reason columns
  * are left completely untouched.
  *
- * Money: List Price is stored as integer satang; written as baht string via
- * Money::toBaht() — never a raw float division (ADR 0015).
+ * Money: List Price and Deal Price are stored as integer satang; written as
+ * baht strings via Money::toBaht() — never a raw float division (ADR 0015).
+ * Deal Price (ราคาส่วนลด) is the denormalized cache on ListingVariant (ADR 0021)
+ * — null when no active Promotion Line exists (only List Price applies).
  *
  * Stock: max(0, availableAt(location)) — mirrors ExportShopStock rule (clamp
  * only on export; Available may be negative inside, CONTEXT.md: Available
@@ -58,6 +61,9 @@ final class ShopeeTemplateFiller implements TemplateFillImporter
     private const COL_VARIATION_OPTION = 'et_title_option_for_variation_1';
 
     private const COL_PRICE = 'ps_price';
+
+    /** Machine key for the Shopee product-discount / Channel Upload deal-price column. */
+    private const COL_DISCOUNT_PRICE = 'ราคาส่วนลด';
 
     private const COL_STOCK = 'ps_stock';
 
@@ -141,6 +147,18 @@ final class ShopeeTemplateFiller implements TemplateFillImporter
             self::COL_PRICE => $variant->list_price->toBaht(),
             self::COL_STOCK => max(0, $variant->availableAt($location)),
         ];
+
+        // Deal Price (ADR 0021): ListingVariant.deal_price is the write-through
+        // cache of the active Promotion Line. Null = no active promotion → leave
+        // the discount column empty so buyers see List Price only.
+        $listingVariant = ListingVariant::query()
+            ->where('shop_id', $shop->id)
+            ->where('variant_id', $variant->id)
+            ->first();
+
+        if ($listingVariant?->deal_price !== null) {
+            $row[self::COL_DISCOUNT_PRICE] = $listingVariant->deal_price->toBaht();
+        }
 
         // Parent SKU — only when product has multiple variants.
         if ($isMultiVariant) {
