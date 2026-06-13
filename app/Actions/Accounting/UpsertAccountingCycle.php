@@ -23,6 +23,10 @@ use InvalidArgumentException;
  */
 class UpsertAccountingCycle
 {
+    public function __construct(
+        private readonly ComputeReconciliationStatus $computeReconciliationStatus,
+    ) {}
+
     /**
      * @param  array<int, array{source_field: string, category: AccountingLineCategory, amount: Money}>  $lines
      */
@@ -58,6 +62,11 @@ class UpsertAccountingCycle
 
             $order->actual_net = Money::fromSatang($totalSatang);
             $order->save();
+
+            // Re-grade Reconciliation Status in the SAME transaction now that
+            // Actual Net moved — a late cycle's deduction can flip a previously
+            // paid_ok Order to paid_mismatch (ADR 0007), the desired behaviour.
+            $this->computeReconciliationStatus->handle($order);
         });
     }
 }
