@@ -132,7 +132,7 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 ## Phase 7 — Promotions + Margin
 
-**Status:** 🔨 in progress — Issues #73–#77 (all `ready-for-agent`): #73 Promotion + Promotion Line kernel (+ **ADR 0021**: Promotion Line is the authority for Deal Price, `ListingVariant.deal_price` becomes its denormalized cache) → #74 Effective Price resolution + one-active-line invariant → #75 export Deal Price per platform; #76 Margin Calculator (independent, uses #65 Fee Profile); #77 campaign expiry reminder.
+**Status:** ✅ complete (Issues #73–#77). Promotion + Promotion Line kernel (#73) with **ADR 0021** (the Promotion Line is the authority for Deal Price; `ListingVariant.deal_price` is its write-through cache); Effective Price resolution + the one-active-line / no-overlapping-campaign invariant + the cache (#74); per-platform Deal Price export into each Channel Upload Template's discount column (#75); the Margin Calculator inverting the Fee Profile to recommend an Effective Price for a target profit (#76); and the campaign expiry reminder list + scheduled check (#77).
 
 **Build:** Promotion / Promotion Line (base/campaign, 1 active line/T), Deal Price/Effective Price, export the discount field per platform, Margin Calculator, expiry reminder. (POS doesn't pull Promotions yet — deferred.)
 
@@ -178,7 +178,7 @@ Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling
                      │                          │    │    └─ 8 Claims ─┐
                      │                          │    └─ 9 Listing / Channel Upload (ADR 0019)
                      │                          └─ 6 Accounting ✅ ────┘
-                     └────────────────────────────── 7 Promotions
+                     └────────────────────────────── 7 Promotions ✅
 ```
 
 **The fastest sellable MVP = 0→1→2→3** (end-to-end storefront). marketplace/accounting/promo/claims/listing build on top afterward without touching 1–3.
