@@ -132,6 +132,8 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 ## Phase 7 — Promotions + Margin
 
+**Status:** 🔨 in progress — Issues #73–#77 (all `ready-for-agent`): #73 Promotion + Promotion Line kernel (+ **ADR 0021**: Promotion Line is the authority for Deal Price, `ListingVariant.deal_price` becomes its denormalized cache) → #74 Effective Price resolution + one-active-line invariant → #75 export Deal Price per platform; #76 Margin Calculator (independent, uses #65 Fee Profile); #77 campaign expiry reminder.
+
 **Build:** Promotion / Promotion Line (base/campaign, 1 active line/T), Deal Price/Effective Price, export the discount field per platform, Margin Calculator, expiry reminder. (POS doesn't pull Promotions yet — deferred.)
 
 **Exit:** set up a promo → Effective Price → export → margin calc recommends a price.
