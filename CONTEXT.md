@@ -358,23 +358,27 @@ The expected/predicted fee rates the system applies when **estimating** the sell
 _Also_: ค่าธรรมเนียมคาดการณ์
 _Avoid_: Rate card (platform-published, may differ from reality), commission rate (only one of several fields)
 
-**Fee Category**:
-The canonical bucket for a single platform-fee component when imported from Accounting Excel. **8 categories** — extensible:
-1. `commission` — platform commission + service fee + infrastructure fee (the "platform take")
-2. `payment_fee` — payment processing
-3. `shipping_seller_paid` — outbound shipping net to seller (after Platform subsidy)
-4. `shipping_return` — return shipping deducted from seller
-5. `marketing_fee` — campaign/flash sale fees, ad spend (GMV Max, Xtra), coupons funded by seller
-6. `affiliate_fee` — paid out to affiliates/partners (TikTok-prominent)
-7. `tax_withheld` — withholding tax, VAT
-8. `other` — catch-all
+**Accounting Line Category**:
+The canonical bucket for a single line of a Platform's settlement breakdown when imported from Accounting Excel — spanning both **income** and **fee/deduction** sides, because an Order's settlement contains both (ADR 0020; the cross-industry standard — Stripe `BalanceTransaction`, A2X — keeps the gross sale as its own line, not bucketed among fees). **10 categories** — extensible:
+- income / contra side:
+  1. `sale_income` — the gross sale (Effective Price) and any buyer-paid shipping income; the positive leg the fees deduct from
+  2. `refund` — money returned to the buyer for this Order (broken out as its own line, as A2X does)
+- fee / deduction side:
+  3. `commission` — platform commission + service fee + infrastructure fee (the "platform take")
+  4. `payment_fee` — payment processing
+  5. `shipping_seller_paid` — outbound shipping net to seller (after Platform subsidy)
+  6. `shipping_return` — return shipping deducted from seller
+  7. `marketing_fee` — campaign/flash sale fees, ad spend (GMV Max, Xtra), coupons funded by seller
+  8. `affiliate_fee` — paid out to affiliates/partners (TikTok-prominent)
+  9. `tax_withheld` — withholding tax, VAT
+  10. `other` — catch-all for an unknown fee, for drill-down/triage (never the gross sale)
 
-Each Accounting Entry maps one Platform-native fee field to one Category. Signed amount (`+` = seller receives, `−` = seller pays) preserved. The Platform-native field name is kept in `source_field` for drilldown.
-_Also_: หมวดค่าธรรมเนียม
-_Avoid_: Fee type (too generic)
+Each Accounting Entry line maps one Platform-native column to one Category. Signed amount (`+` = seller receives, `−` = seller pays) preserved, so the Order's signed lines **sum to the net the Platform actually transferred** = Actual Net (ADR 0020). The Platform-native field name is kept in `source_field` for drilldown. The enum is `AccountingLineCategory` (renamed from the fee-only `FeeCategory`, ADR 0020).
+_Also_: หมวดรายการบัญชี
+_Avoid_: Fee Category (fee-only — superseded; some lines are income), Fee type (too generic)
 
 **Accounting Entry**:
-The complete financial record for one Order, built from a Platform's accounting Excel. Contains all fee and income line items for that Order — each line item has a `category` (Fee Category), `amount` (signed THB, `+` = seller receives, `−` = seller pays), `source_field` (Platform's original column name), and the `statement_cycle` it came from. Always attached to one Order (`ref_order_id` is required, never null). **Marketplace Orders only** — an Accounting Entry exists to capture the platform's fees and its settle-later money flow (the gap that needs reconciling). A **POS Order has no Accounting Entry**: its money is collected in hand at the point of sale with no platform fees, so its contribution to the P&L is computed **directly** — revenue = the Payment total, COGS = the Cost Price of the Variants sold (recognised at the same moment, per the matching principle), no fee leg. The combined P&L sums a per-Order net across channels (marketplace = Actual Net from the Accounting Entry; POS = Payment − COGS). Each Platform structures its accounting file differently — one row per Order (Shopee wallet), multiple rows per Order (Lazada transaction journal), or one wide row with many fee columns (TikTok) — the importer normalises all into line items under one Accounting Entry per Order.
+The complete financial record for one Order, built from a Platform's accounting Excel — the Platform's full **settlement breakdown** for that Order: a positive **income** line (the gross sale, `sale_income`), one signed line per **fee** deducted, and any **refund** line (ADR 0020). Each line has a `category` (Accounting Line Category), `amount` (signed THB, `+` = seller receives, `−` = seller pays), `source_field` (Platform's original column name), and the `statement_cycle` it came from. The Order's signed lines **sum to the net the Platform actually transferred** = Actual Net, and the importer fail-loud cross-checks that sum against the file's own transferred-total column (ADR 0005/0020). Always attached to one Order (`ref_order_id` is required, never null). **Marketplace Orders only** — an Accounting Entry exists to capture the platform's settle-later money flow (the gap that needs reconciling). A **POS Order has no Accounting Entry**: its money is collected in hand at the point of sale with no platform fees, so its contribution to the P&L is computed **directly** — revenue = the Payment total, COGS = the Cost Price of the Variants sold (recognised at the same moment, per the matching principle), no fee leg. The combined P&L sums a per-Order net across channels (marketplace = Actual Net from the Accounting Entry; POS = Payment − COGS). Each Platform structures its accounting file differently — one wide row per Order (Shopee Income report; TikTok), or multiple rows per Order (Lazada transaction journal) — the importer normalises all into line items under one Accounting Entry per Order.
 
 **Import is cycle-aware, not "immutable once imported"** (see ADR 0007): accounting files are issued per **statement cycle** (`รหัสรอบบิล` / settlement period), and an Order's line items can be split across several cycles — e.g. the sale posts in one cycle, a return deduction in a later one. So re-importing the **same cycle** replaces that cycle's line items for the Order (idempotent — no double-count), while a **new cycle appends** its line items. The Accounting Entry's totals (and Actual Net) are the sum across **all** of the Order's cycles.
 _Also_: รายการบัญชี
@@ -402,7 +406,7 @@ _Also_: เงินที่คาดว่าจะได้
 _Avoid_: Net revenue (more ambiguous)
 
 **Actual Net**:
-The Effective Price net of Platform fees the seller *actually* received for an Order — the total of all signed amounts in the Order's Accounting Entry. The backward-looking number that grounds the Expected Net check.
+The Effective Price net of Platform fees the seller *actually* received for an Order — the total of all signed amounts in the Order's Accounting Entry (the positive `sale_income` line plus the negative fee/refund lines, summed across all cycles), which equals the net the Platform actually transferred (ADR 0020). The backward-looking number that grounds the Expected Net check.
 _Also_: เงินที่ได้จริง
 _Avoid_: Realized revenue, payout (overloaded)
 
