@@ -121,7 +121,7 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 ## Phase 6 — Accounting + Reconciliation + P&L
 
-**Status:** 🔨 in progress — decomposed into Issues #61–#72 (all `ready-for-agent`): #61 Accounting Entry kernel → #62–#64 per-platform accounting importers → #65 Fee Profile + Expected Net → #66 Reconciliation → #67 Expected Payout/overdue → #68 Hold Period auto-tune; #69 Expense + #70 POS P&L (independent) → #71 daily rollup → #72 combined P&L report.
+**Status:** 🔨 in progress — Issues #61–#72. **Done:** the accounting-import backbone — #61 Accounting Entry kernel, **ADR 0020** (income leg as a first-class signed settlement line; `FeeCategory`→`AccountingLineCategory` + `sale_income`/`refund`), #62 Shopee importer + the `HasSheetLayout` pipeline extension + `MarketplaceAccountingImporter` base, #63 Lazada, #64 TikTok. **Queued:** #65 Fee Profile + Expected Net → #66 Reconciliation → #67 Expected Payout/overdue → #68 Hold Period auto-tune; #69 Expense + #70 POS P&L (independent) → #71 daily rollup → #72 combined P&L report.
 
 **Build:** Accounting Entry (**cycle-aware import**, ADR 0007), Fee Category (8), Actual Net, Expected Net, Platform Fee Profile, Reconciliation Status, Hold Period/Settlement/Expected Payout/Mismatch (marketplace), **POS direct P&L (Payment − COGS, no fee)**, **Cash Over/Short**, Expense, **combined P&L across every channel**.
 - **Reports at the million-row level use a rollup table / materialized view (daily summary)** — never scan raw at runtime — consistent with the Phase-1 scaling rules.
