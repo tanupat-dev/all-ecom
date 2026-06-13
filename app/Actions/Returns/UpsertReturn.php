@@ -47,6 +47,9 @@ class UpsertReturn
 
             $orderId = $normalized->lines[0]['order_line']->order_id;
 
+            $reasonFault = app(ClassifyReturnReason::class)
+                ->handle($shop->platform, $normalized->returnReason);
+
             $attributes = [
                 'shop_id' => $shop->id,
                 'platform_return_id' => $normalized->platformReturnId,
@@ -54,6 +57,7 @@ class UpsertReturn
                 'return_type' => $normalized->returnType,
                 'sub_status' => $normalized->subStatus,
                 'return_reason' => $normalized->returnReason,
+                'reason_fault' => $reasonFault,
                 'buyer_note' => $normalized->buyerNote,
                 'refund_amount' => $normalized->refundAmount,
                 'tracking_number' => $normalized->trackingNumber,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\MoneyCast;
 use App\Enums\Platform;
+use App\Enums\ReturnReasonFault;
 use App\Enums\ReturnSubStatus;
 use App\Enums\ReturnType;
 use App\Models\Concerns\TracksCreatedBy;
@@ -28,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property ReturnType $return_type
  * @property ReturnSubStatus $sub_status
  * @property string|null $return_reason
+ * @property ReturnReasonFault|null $reason_fault
  * @property string|null $buyer_note
  * @property Money|null $refund_amount
  * @property string|null $tracking_number
@@ -44,7 +46,7 @@ class OrderReturn extends Model
 
     protected $fillable = [
         'shop_id', 'platform_return_id', 'ref_order_id', 'return_type', 'sub_status',
-        'return_reason', 'buyer_note', 'refund_amount', 'tracking_number', 'requested_at', 'refunded_at', 'refunded',
+        'return_reason', 'reason_fault', 'buyer_note', 'refund_amount', 'tracking_number', 'requested_at', 'refunded_at', 'refunded',
     ];
 
     protected function casts(): array
@@ -52,6 +54,7 @@ class OrderReturn extends Model
         return [
             'return_type' => ReturnType::class,
             'sub_status' => ReturnSubStatus::class,
+            'reason_fault' => ReturnReasonFault::class,
             'refund_amount' => MoneyCast::class,
             'requested_at' => 'datetime',
             'refunded_at' => 'datetime',
