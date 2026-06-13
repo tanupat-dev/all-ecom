@@ -3,6 +3,7 @@
 namespace App\Imports\ChannelTemplate;
 
 use App\Imports\RowImportException;
+use App\Models\ListingVariant;
 use App\Models\Location;
 use App\Models\Shop;
 use App\Models\Variant;
@@ -80,7 +81,9 @@ use ZipArchive;
  * catId, catProperty.* (all except p-20000 when it exists), saleProp.*
  * (category-scoped option keys — the seller must select variant attributes per
  * Lazada's category ontology), sku.shop_sku (Lazada's internal platform SKU),
- * sku.special_price.* / sku.campaignPrice.* (Deal Price = Phase 7),
+ * sku.special_price.Start / sku.special_price.End / sku.campaignPrice.*
+ * (date range and campaign fields — only sku.special_price.SpecialPrice is
+ * filled when a Deal Price exists, per ADR 0021),
  * warrantyPolicy / warrantyPeriod / warrantyType, radioDangerousGoods,
  * deliveryStandard, packageContent, currencyCode, originalLocalName,
  * newVideo, everything in _hide / สถานะ / global_hide sheets.
@@ -112,6 +115,13 @@ final class LazadaTemplateFiller implements TemplateFillImporter
     private const COL_SELLER_SKU = 'sku.SellerSku';
 
     private const COL_PRICE = 'sku.price';
+
+    /**
+     * Machine key for the Lazada special/deal-price column (confirmed from
+     * ref doc/lazada/batch upload product lazada.xlsx _hide sheet row 3,
+     * column BC). Null ListingVariant.deal_price → column left empty (ADR 0021).
+     */
+    private const COL_SPECIAL_PRICE = 'sku.special_price.SpecialPrice';
 
     private const COL_QUANTITY = 'sku.quantity';
 
@@ -326,6 +336,19 @@ final class LazadaTemplateFiller implements TemplateFillImporter
             self::COL_PRICE => $variant->list_price->toBaht(),
             self::COL_QUANTITY => max(0, $variant->availableAt($location)),
         ];
+
+        // Deal Price (ADR 0021): ListingVariant.deal_price is the write-through
+        // cache of the active Promotion Line (confirmed machine key:
+        // sku.special_price.SpecialPrice from _hide sheet row 3 col BC in the
+        // ref doc). Null = no active promotion → leave sku.special_price.* empty.
+        $listingVariant = ListingVariant::query()
+            ->where('shop_id', $shop->id)
+            ->where('variant_id', $variant->id)
+            ->first();
+
+        if ($listingVariant?->deal_price !== null) {
+            $row[self::COL_SPECIAL_PRICE] = $listingVariant->deal_price->toBaht();
+        }
 
         // English title — skip if null/empty.
         if (! empty($product->english_name)) {

@@ -1158,3 +1158,83 @@ it('Lazada: StartTemplateFill dispatches RunTemplateFillJob with correct ImportJ
         ->and($jobContext['shop_id'] ?? null)->toBe($shop->id)
         ->and($jobContext['variant_ids'] ?? null)->toBe($variantIds);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deal Price / sku.special_price.SpecialPrice column (Issue #75, ADR 0021)
+// Machine key confirmed from ref doc/lazada/batch upload product lazada.xlsx
+// _hide sheet row 3 column BC.
+// ─────────────────────────────────────────────────────────────────────────────
+
+it('Lazada: fills sku.special_price.SpecialPrice when ListingVariant has a non-null deal_price', function () {
+    $shop = lazadaFillShop('lazada-deal-fill');
+    $product = lazadaFillProduct('สินค้า LZ-Deal', [
+        ['master_sku' => 'DEAL-LZ-1', 'name' => null, 'list_price' => Money::fromSatang(25000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย LZ-Deal']);
+    $product->images()->create(['path' => 'img/lz-deal.jpg', 'sort_order' => 1]);
+    $product->load('images');
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+
+    // Pre-seed a ListingVariant with deal_price (simulates an active Promotion Line).
+    $listing = Listing::query()->create([
+        'shop_id' => $shop->id,
+        'product_id' => $product->id,
+    ]);
+    $listing->variants()->create([
+        'shop_id' => $shop->id,
+        'variant_id' => $variant->id,
+        'platform_sku' => 'DEAL-LZ-1',
+        'deal_price' => Money::fromSatang(18000),  // 180.00 baht deal price
+        'listing_status' => ListingStatus::Draft,
+    ]);
+
+    $importJob = lazadaMakeTemplateFillJob($shop, [$variant->id], 'imports/laz/deal.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Special price column filled with the deal price in baht.
+    expect(lazadaReadFilledCell($fullPath, 'sku.special_price.SpecialPrice', 5))->toBe('180.00');
+
+    // List price column still filled correctly.
+    expect(lazadaReadFilledCell($fullPath, 'sku.price', 5))->toBe('250.00');
+});
+
+it('Lazada: sku.special_price.SpecialPrice column is empty when ListingVariant.deal_price is null (no promotion)', function () {
+    $shop = lazadaFillShop('lazada-no-deal');
+    $product = lazadaFillProduct('สินค้า LZ-NoDeal', [
+        ['master_sku' => 'NODEAL-LZ-1', 'name' => null, 'list_price' => Money::fromSatang(22000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย LZ-NoDeal']);
+    $product->images()->create(['path' => 'img/lz-nodeal.jpg', 'sort_order' => 1]);
+    $product->load('images');
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+    // No ListingVariant pre-created → deal_price effectively null.
+
+    $importJob = lazadaMakeTemplateFillJob($shop, [$variant->id], 'imports/laz/nodeal.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Special price column not written (null) — no active promotion.
+    expect(lazadaReadFilledCell($fullPath, 'sku.special_price.SpecialPrice', 5))->toBeNull();
+
+    // List price still filled.
+    expect(lazadaReadFilledCell($fullPath, 'sku.price', 5))->toBe('220.00');
+});

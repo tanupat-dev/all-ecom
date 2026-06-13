@@ -3,6 +3,7 @@
 namespace App\Imports\ChannelTemplate;
 
 use App\Imports\RowImportException;
+use App\Models\ListingVariant;
 use App\Models\Location;
 use App\Models\Shop;
 use App\Models\Variant;
@@ -40,8 +41,10 @@ use Illuminate\Database\Eloquent\Collection;
  *   own minted list (the "Brand" hidden sheet, "Name (id)" format) and we
  *   never fabricate platform tokens (ADR 0019).
  *
- * Money: List Price is stored as integer satang; written as baht string via
- *   Money::toBaht() — never a raw float division (ADR 0015).
+ * Money: List Price and Deal Price are stored as integer satang; written as
+ *   baht strings via Money::toBaht() — never a raw float division (ADR 0015).
+ *   Deal Price (deal_price) is the denormalized cache on ListingVariant
+ *   (ADR 0021) — null when no active Promotion Line exists.
  *
  * Stock: max(0, availableAt(location)) — clamp only on export; Available may
  *   be negative internally (CONTEXT.md: Available Stock).
@@ -113,6 +116,9 @@ final class TiktokTemplateFiller implements TemplateFillImporter
     private const COL_PARCEL_HEIGHT = 'parcel_height';
 
     private const COL_PRICE = 'price';
+
+    /** Machine key for the TikTok deal-price column (ADR 0021). */
+    private const COL_DEAL_PRICE = 'deal_price';
 
     private const COL_QUANTITY = 'quantity';
 
@@ -189,6 +195,18 @@ final class TiktokTemplateFiller implements TemplateFillImporter
             self::COL_PRICE => $variant->list_price->toBaht(),
             self::COL_QUANTITY => max(0, $variant->availableAt($location)),
         ];
+
+        // Deal Price (ADR 0021): ListingVariant.deal_price is the write-through
+        // cache of the active Promotion Line. Null = no active promotion → leave
+        // the deal_price column empty so buyers see List Price only.
+        $listingVariant = ListingVariant::query()
+            ->where('shop_id', $shop->id)
+            ->where('variant_id', $variant->id)
+            ->first();
+
+        if ($listingVariant?->deal_price !== null) {
+            $row[self::COL_DEAL_PRICE] = $listingVariant->deal_price->toBaht();
+        }
 
         // Brand: "ไม่มีแบรนด์" only when null; leave blank when set.
         if ($product->brand === null) {

@@ -119,6 +119,7 @@ function tiktokBuildTemplateXlsx(): string
         'parcel_height',
         'delivery',
         'price',
+        'deal_price',
         'pre_order_time',
         'quantity',
         'seller_sku',
@@ -839,4 +840,78 @@ it('TikTok: cross-tenant variant_ids are invisible — reported as not-found err
         ->and(collect($importJob->errors)->pluck('message')->implode(' '))->toContain((string) $variantB->id);
 
     expect(ListingVariant::query()->where('shop_id', $shopA->id)->count())->toBe(0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deal Price / deal_price column (Issue #75, ADR 0021)
+// ─────────────────────────────────────────────────────────────────────────────
+
+it('TikTok: fills deal_price when ListingVariant has a non-null deal_price', function () {
+    $shop = tiktokFillShop('tiktok-deal-fill');
+    $product = tiktokFillProduct('สินค้า TK-Deal', [
+        ['master_sku' => 'DEAL-TK-1', 'name' => null, 'list_price' => Money::fromSatang(20000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย TK-Deal']);
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+
+    // Pre-seed a ListingVariant with deal_price (simulates an active Promotion Line).
+    $listing = Listing::query()->create([
+        'shop_id' => $shop->id,
+        'product_id' => $product->id,
+    ]);
+    $listing->variants()->create([
+        'shop_id' => $shop->id,
+        'variant_id' => $variant->id,
+        'platform_sku' => 'DEAL-TK-1',
+        'deal_price' => Money::fromSatang(15000),  // 150.00 baht deal price
+        'listing_status' => ListingStatus::Draft,
+    ]);
+
+    $importJob = tiktokMakeTemplateFillJob($shop, [$variant->id], 'imports/1/deal-tk.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Deal Price column filled with the deal price in baht.
+    expect(tiktokReadFilledCell($fullPath, 'deal_price', 6))->toBe('150.00');
+
+    // List price column still filled correctly.
+    expect(tiktokReadFilledCell($fullPath, 'price', 6))->toBe('200.00');
+});
+
+it('TikTok: deal_price column is empty when ListingVariant.deal_price is null (no promotion)', function () {
+    $shop = tiktokFillShop('tiktok-no-deal');
+    $product = tiktokFillProduct('สินค้า TK-NoDeal', [
+        ['master_sku' => 'NODEAL-TK-1', 'name' => null, 'list_price' => Money::fromSatang(18000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย TK-NoDeal']);
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+    // No ListingVariant pre-created → deal_price effectively null.
+
+    $importJob = tiktokMakeTemplateFillJob($shop, [$variant->id], 'imports/1/nodeal-tk.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Deal Price column not written (null) — no active promotion.
+    expect(tiktokReadFilledCell($fullPath, 'deal_price', 6))->toBeNull();
+
+    // List price still filled.
+    expect(tiktokReadFilledCell($fullPath, 'price', 6))->toBe('180.00');
 });

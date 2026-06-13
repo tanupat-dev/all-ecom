@@ -124,6 +124,7 @@ function buildShopeeTemplateXlsx(): string
         'channel_id.7000|0|0',
         'ps_product_pre_order_dts|0|1',
         'et_title_reason|0|0',
+        'ราคาส่วนลด|0|0',
     ];
 
     // All shared strings: header keys + token row values + Thai labels.
@@ -999,4 +1000,78 @@ it('cross-tenant: another tenant\'s ImportJob is invisible in the ImportJobResou
     // Tenant B's list must NOT show Tenant A's job.
     Livewire::test(ListImportJobs::class)
         ->assertCanNotSeeTableRecords([$importJobA]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deal Price / ราคาส่วนลด column (Issue #75, ADR 0021)
+// ─────────────────────────────────────────────────────────────────────────────
+
+it('Shopee: fills ราคาส่วนลด when ListingVariant has a non-null deal_price', function () {
+    $shop = fillShop('shopee-deal-fill');
+    $product = fillProduct('สินค้า Deal', [
+        ['master_sku' => 'DEAL-S-1', 'name' => null, 'list_price' => Money::fromSatang(15000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย Deal']);
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+
+    // Pre-seed a ListingVariant with deal_price (simulates an active Promotion Line).
+    $listing = Listing::query()->create([
+        'shop_id' => $shop->id,
+        'product_id' => $product->id,
+    ]);
+    $listing->variants()->create([
+        'shop_id' => $shop->id,
+        'variant_id' => $variant->id,
+        'platform_sku' => 'DEAL-S-1',
+        'deal_price' => Money::fromSatang(9000),  // 90.00 baht deal price
+        'listing_status' => ListingStatus::Draft,
+    ]);
+
+    $importJob = makeTemplateFillJob($shop, [$variant->id], 'imports/1/deal-s.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Discount column filled with the deal price in baht.
+    expect(readFilledCell($fullPath, 'ราคาส่วนลด', 7))->toBe('90.00');
+
+    // List price column still filled correctly.
+    expect(readFilledCell($fullPath, 'ps_price', 7))->toBe('150.00');
+});
+
+it('Shopee: ราคาส่วนลด column is empty when ListingVariant.deal_price is null (no promotion)', function () {
+    $shop = fillShop('shopee-no-deal');
+    $product = fillProduct('สินค้า NoDeal', [
+        ['master_sku' => 'NODEAL-S-1', 'name' => null, 'list_price' => Money::fromSatang(12000)],
+    ]);
+    $product->update(['description' => 'คำอธิบาย NoDeal']);
+
+    $variant = $product->variants->first() ?? throw new RuntimeException('Expected at least one variant.');
+    // No ListingVariant pre-created → deal_price effectively null.
+
+    $importJob = makeTemplateFillJob($shop, [$variant->id], 'imports/1/nodeal-s.xlsx');
+    $tenant = app(TenantContext::class)->current() ?? throw new RuntimeException('No active tenant.');
+    (new RunTemplateFillJob($importJob->id, $tenant->id))->handle();
+
+    $importJob->refresh();
+    $context = $importJob->context;
+    $resultPath = is_array($context) ? ($context['result_path'] ?? null) : null;
+    if (! is_string($resultPath)) {
+        throw new RuntimeException('Expected result_path to be set after fill.');
+    }
+    $fullPath = Storage::disk('local')->path($resultPath);
+
+    // Discount column not written (null) — no active promotion.
+    expect(readFilledCell($fullPath, 'ราคาส่วนลด', 7))->toBeNull();
+
+    // List price still filled.
+    expect(readFilledCell($fullPath, 'ps_price', 7))->toBe('120.00');
 });
