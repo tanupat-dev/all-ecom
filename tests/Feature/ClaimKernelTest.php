@@ -219,6 +219,19 @@ it('passes the cross-tenant isolation harness', function () {
     });
 });
 
+// ─── TransitionClaimStatus: nextStates (for UI — Issue #84) ──────────────────
+
+it('nextStates returns the two legal exits from eligible', function () {
+    expect(app(TransitionClaimStatus::class)->nextStates(ClaimStatus::Eligible))
+        ->toBe([ClaimStatus::SubmittedInitial, ClaimStatus::Abandoned]);
+});
+
+it('nextStates returns an empty list for every terminal state', function () {
+    expect(app(TransitionClaimStatus::class)->nextStates(ClaimStatus::Approved))->toBe([])
+        ->and(app(TransitionClaimStatus::class)->nextStates(ClaimStatus::Rejected))->toBe([])
+        ->and(app(TransitionClaimStatus::class)->nextStates(ClaimStatus::Abandoned))->toBe([]);
+});
+
 // ─── TransitionClaimStatus: legal transitions ─────────────────────────────────
 
 it('transitions Eligible → SubmittedInitial', function () {
