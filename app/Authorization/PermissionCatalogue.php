@@ -27,6 +27,8 @@ class PermissionCatalogue
         'order.import',
         'return.view',
         'return.manage',
+        'accounting.view',
+        'accounting.manage',
         'report.view',
         'cost.view',
         'pos.checkout',
