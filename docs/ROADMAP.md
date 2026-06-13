@@ -121,7 +121,7 @@ Extends the Order kernel with an external channel. The biggest one, because it's
 
 ## Phase 6 — Accounting + Reconciliation + P&L
 
-**Status:** 🔨 in progress — Issues #61–#72. **Done:** the accounting-import backbone — #61 Accounting Entry kernel, **ADR 0020** (income leg as a first-class signed settlement line; `FeeCategory`→`AccountingLineCategory` + `sale_income`/`refund`), #62 Shopee importer + the `HasSheetLayout` pipeline extension + `MarketplaceAccountingImporter` base, #63 Lazada, #64 TikTok. **Queued:** #65 Fee Profile + Expected Net → #66 Reconciliation → #67 Expected Payout/overdue → #68 Hold Period auto-tune; #69 Expense + #70 POS P&L (independent) → #71 daily rollup → #72 combined P&L report.
+**Status:** ✅ complete (Issues #61–#72). Cycle-aware Accounting Entry kernel (#61) with **ADR 0020** (income leg as a first-class signed settlement line; `FeeCategory`→`AccountingLineCategory` + `sale_income`/`refund`, line sum = net transferred = Actual Net); the `HasSheetLayout` pipeline extension + `MarketplaceAccountingImporter` base and the 3 accounting importers (#62 Shopee, #63 Lazada, #64 TikTok); Platform Fee Profile + Expected Net (#65); Reconciliation Status + Mismatch list (#66); Expected Payout Date + overdue list (#67); Hold Period auto-tune (#68); Expense CRUD (#69); POS direct P&L (#70); the queue-maintained daily P&L rollup (#71); and the combined cross-channel P&L report (#72).
 
 **Build:** Accounting Entry (**cycle-aware import**, ADR 0007), Fee Category (8), Actual Net, Expected Net, Platform Fee Profile, Reconciliation Status, Hold Period/Settlement/Expected Payout/Mismatch (marketplace), **POS direct P&L (Payment − COGS, no fee)**, **Cash Over/Short**, Expense, **combined P&L across every channel**.
 - **Reports at the million-row level use a rollup table / materialized view (daily summary)** — never scan raw at runtime — consistent with the Phase-1 scaling rules.
@@ -175,7 +175,7 @@ Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling
                      │                          │    ├─ 5 Returns
                      │                          │    │    └─ 8 Claims ─┐
                      │                          │    └─ 9 Listing / Channel Upload (ADR 0019)
-                     │                          └─ 6 Accounting ───────┘
+                     │                          └─ 6 Accounting ✅ ────┘
                      └────────────────────────────── 7 Promotions
 ```
 
