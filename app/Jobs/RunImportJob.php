@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\ImportJobStatus;
+use App\Imports\HasSheetLayout;
 use App\Imports\Importer;
 use App\Imports\ImportJobAware;
 use App\Imports\RowImportException;
@@ -67,7 +68,7 @@ class RunImportJob implements ShouldQueue
         try {
             $chunk = [];
 
-            foreach ($this->rows($importJob) as $rowNumber => $row) {
+            foreach ($this->rows($importJob, $importer) as $rowNumber => $row) {
                 try {
                     $chunk[] = $importer->mapRow($row, $rowNumber);
                 } catch (RowImportException $e) {
@@ -111,21 +112,46 @@ class RunImportJob implements ShouldQueue
      * Streams header-keyed rows; the generator key is the 1-based
      * spreadsheet row number (data starts at row 2, after the header).
      *
+     * The default is a single-sheet file with its header on row 1. An importer
+     * that implements HasSheetLayout opts into a named sheet (selected by name)
+     * and a header below the first row (the preamble above it is skipped) — the
+     * key stays the true 1-based spreadsheet row so error reports point at the
+     * real row. An importer that does not implement it is byte-for-byte
+     * unchanged: first sheet, header row 1, data from row 2.
+     *
      * @return iterable<int, array<string, mixed>>
      */
-    private function rows(ImportJob $importJob): iterable
+    private function rows(ImportJob $importJob, Importer $importer): iterable
     {
+        $sheetName = $importer instanceof HasSheetLayout ? $importer->sheetName() : null;
+        $headerRowOffset = $importer instanceof HasSheetLayout ? $importer->headerRowOffset() : 1;
+
         $reader = $this->readerFor($importJob);
         $reader->open(Storage::disk('local')->path($importJob->stored_path));
 
         try {
             $headers = null;
+            $matchedSheet = false;
 
             foreach ($reader->getSheetIterator() as $sheet) {
+                // Select the named sheet when one is requested; otherwise the
+                // first sheet (the current default).
+                if ($sheetName !== null && $sheet->getName() !== $sheetName) {
+                    continue;
+                }
+
+                $matchedSheet = true;
                 $rowNumber = 0;
 
                 foreach ($sheet->getRowIterator() as $row) {
                     $rowNumber++;
+
+                    // Skip the preamble rows above the header entirely — they
+                    // are neither headers nor data (default offset 1 skips none).
+                    if ($rowNumber < $headerRowOffset) {
+                        continue;
+                    }
+
                     $cells = $row->toArray();
 
                     if ($headers === null) {
@@ -145,8 +171,14 @@ class RunImportJob implements ShouldQueue
                     );
                 }
 
-                // The pipeline contract is single-sheet files.
+                // One target sheet per file.
                 break;
+            }
+
+            if ($sheetName !== null && ! $matchedSheet) {
+                // A renamed/missing data sheet must fail loud (ADR 0005), not
+                // silently import nothing.
+                throw new RuntimeException("ระบบไม่รองรับ — ไม่พบชีตชื่อ [{$sheetName}] ในไฟล์");
             }
 
             if ($headers === null) {
