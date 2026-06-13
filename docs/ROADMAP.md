@@ -170,6 +170,21 @@ Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling
 
 ---
 
+## Phase 10 — Fulfilment (Dispatch Round + per-Shop hub; ADR 0023)
+
+The operational other half of the imported Order: from the mirror Orders, **pick / pack / dispatch** them and print the documents. Depends on Phase 4 (Order import / Shop); independent of Accounting/Promotions/Claims.
+
+- **Order list, made usable** — table (not cards) with a `platform_order_id` column, **search** (order no. / Tracking / recipient), **filters** (status multi-select · Shop · platform · date range + presets), **status tabs + count badges**, and a **View** page (sectioned detail: header / customer / items / shipping / timeline). Stays read-only (ADR 0002).
+- **Capture fulfilment fields** — extend the Order importers to map **recipient name · province · Buyer Message** (Shopee/TikTok; Lazada blank, fail-loud) and parse the **courier → `shipping_provider`**; re-import must preserve the local fulfilment fields.
+- **Per-Shop upload hub** — group upload + import history per Shop, under their Platform in the nav.
+- **Shop archive** — `archived_at` (hide + block new imports/sales, keep history); hard-delete only a Shop with no dependent rows.
+- **Dispatch Round** — cross-Shop print-batch; pool = `phase ∈ {รอแพ็ค, แพ็คแล้ว}` **AND** not-printed; the **Printed Flag**/`round_id` (local, sticky) is the dedup authority — re-import never un-prints or regresses a handled Order.
+- **Pick List + Dispatch Manifest** — printed together per Round (SKU-aggregated pick doc + per-Order customisable manifest → Excel/PDF); **filtered bulk-print** of any status/date with a **reprint warning**.
+
+**Exit:** filter ready-to-fulfil Orders across Shops → create a Round → print Pick List + Manifest → re-importing the same export never re-queues or re-prints those Orders.
+
+---
+
 ## Dependency chain (summary)
 
 ```
@@ -178,7 +193,8 @@ Helps a seller bulk-list onto Shopee/Lazada/TikTok **without an API** by filling
                      │                          ├─ 4 Marketplace import
                      │                          │    ├─ 5 Returns
                      │                          │    │    └─ 8 Claims ✅ ─┐
-                     │                          │    └─ 9 Listing / Channel Upload (ADR 0019) ✅
+                     │                          │    ├─ 9 Listing / Channel Upload (ADR 0019) ✅
+                     │                          │    └─ 10 Fulfilment (ADR 0023)
                      │                          └─ 6 Accounting ✅ ────┘
                      └────────────────────────────── 7 Promotions ✅
 ```
