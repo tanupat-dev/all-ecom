@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Accounting\ComputeExpectedNet;
+use App\Actions\Accounting\ComputeReconciliationStatus;
 use App\Enums\PlatformType;
 use App\Models\Order;
 use App\Tenancy\RestoreTenantContext;
@@ -40,14 +41,21 @@ class RecomputeShopExpectedNet implements ShouldQueue
         return [new RestoreTenantContext($this->tenantId)];
     }
 
-    public function handle(ComputeExpectedNet $computeExpectedNet): void
-    {
+    public function handle(
+        ComputeExpectedNet $computeExpectedNet,
+        ComputeReconciliationStatus $computeReconciliationStatus,
+    ): void {
         Order::query()
             ->where('shop_id', $this->shopId)
             ->where('platform_type', PlatformType::Marketplace)
-            ->chunkById(200, function (Collection $orders) use ($computeExpectedNet): void {
+            ->chunkById(200, function (Collection $orders) use ($computeExpectedNet, $computeReconciliationStatus): void {
                 foreach ($orders as $order) {
                     $computeExpectedNet->handle($order);
+
+                    // A changed estimate re-grades reconciliation: an Order
+                    // already paid (Actual Net present) can flip ok↔mismatch
+                    // when the expected baseline shifts (ADR 0007).
+                    $computeReconciliationStatus->handle($order);
                 }
             });
     }
