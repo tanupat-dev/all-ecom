@@ -1,5 +1,9 @@
 # Expected shipping is computed from catalog weight/dimensions — max(actual, volumetric), tiered, summed across Order Lines
 
+---
+Status: accepted, but **demoted to the fallback path by ADR 0024**. The catalogue-derived expectation below is no longer the *primary* `shipping_overcharge` mechanism: each Platform discloses its own per-order actual shipping (TikTok billed-weight, Shopee subsidy-aware net, Lazada Shipping Fee statement), and ADR 0024 detects against those. The formula here remains the **last-resort fallback** when no disclosed-actual export exists, and `expected_shipping_rate` keeps the shape pinned below. The "uniform, all-platforms, `|shipping_seller_paid|` (net) vs catalogue" flag condition in §4 is **superseded** — it false-flags subsidised sellers and misses overcharges a platform discount/subsidy nets down.
+---
+
 Phase 8's `shipping_overcharge` **Claim** (CONTEXT.md: Claim) auto-flags when a courier billed the seller more than the seller fairly expected to pay. CONTEXT pins the *trigger* — "auto-flagged from Accounting Entry analysis when `shipping_seller_paid` exceeds the expected rate (`expected_shipping_rate` in Shop Settings)" — but leaves **how the expected rate is computed** and **what shape `expected_shipping_rate` takes** undefined. This ADR pins both, so the auto-flag is deterministic and `expected_shipping_rate` becomes a contract.
 
 ## Decision

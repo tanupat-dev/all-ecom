@@ -24,11 +24,11 @@ A request the seller files with a Platform to recover money the Platform or its 
 
 Two `claim_type`s:
 - **`return_fee`** — attaches to a specific **Return** whose Return Reason mapped to the seller-fault bucket on import, prompting the seller to verify whether they actually shipped correctly. If yes → file Claim to recover return shipping + deductions. If the seller confirms it was their own fault → close without claiming.
-- **`shipping_overcharge`** — attaches to the **Order**; courier charged more than the expected weight-based rate. Recover the excess. Auto-flagged from Accounting Entry analysis when `shipping_seller_paid` exceeds the expected rate (`expected_shipping_rate` in Shop Settings).
+- **`shipping_overcharge`** — the courier billed more shipping than the parcel's true weight warrants, and the **seller bore the excess**. Recover it. Detection is **per-Platform and subsidy-aware**, against each Platform's own *disclosed actual* shipping — never a single uniform formula (ADR 0024): **TikTok** from the billed-weight vs parcel-weight discrepancy in its accounting export; **Shopee** from the income report's per-order net shipping the seller actually bore (buyer-paid + Shopee subsidy + actual charge — a fully-subsidised order nets to zero and is *not* a Claim); **Lazada** from the per-billing-cycle Shipping Fee statement (`lsf < csf`, wrong-weight adjustment). A catalogue-derived expectation (ADR 0022) is the **fallback** when a Platform/Shop exposes no per-order actual. Auto-flag is fail-safe: a missing input yields no flag (ADR 0005). Normally attaches to the **Order** (Lazada's is statement-scoped, or created by hand). The recoverable shown is an **estimate** to decide whether to file; the **actual recovered** amount is read from the Platform's own compensation field on import.
 
-A Claim attaches to one Order (a `return_fee` Claim additionally to the specific Return that triggered it) and tracks three things:
+A Claim attaches to one Order (a `return_fee` Claim additionally to the specific Return that triggered it; a Lazada `shipping_overcharge` may instead reference a billing-cycle statement) and tracks three things:
 
-1. **Claim Status** (6 values, two-stage lifecycle):
+1. **Claim Status** (6 values, two-stage lifecycle). Where a Platform discloses its own dispute state in an export (TikTok `Dispute Status`/`Appeal Status`, Shopee `สถานะการเคลมค่าจัดส่ง`), that state **informs** Claim Status on import; manual transition stays the authority for stages the Platform doesn't cover (e.g. `abandoned`) and for overrides (ADR 0024):
    - `eligible` — auto-flagged on import when return reason ≠ "เปลี่ยนใจ/ไม่ต้องการ"; nothing submitted yet
    - `submitted_initial` — first-round Claim filed with Platform, awaiting decision (e.g., TikTok's initial claim flow — no chance to add evidence at this stage; evidence must be ready beforehand)
    - `submitted_ticket` — initial Claim rejected, seller opened a support ticket as stage 2; Platform may request additional evidence within the ticket
@@ -38,7 +38,7 @@ A Claim attaches to one Order (a `return_fee` Claim additionally to the specific
 
 2. **Evidence Checklist**: structured proof items the seller collects. Default items: outgoing packing/shipping video, incoming unboxing video, weight on scale (before/after), photos of received goods. Seller can extend per Claim. Most critical *before* `submitted_initial` since some Platforms (TikTok) don't allow adding evidence post-submission.
 
-3. **Claim Timeline**: append-only log of manual entries (date, action, note, optional ticket #) — submission, decisions, info requests in ticket stage, evidence updates, payout amounts.
+3. **Claim Timeline**: append-only log of manual entries (date, action, note, optional ticket #) — submission, decisions, info requests in ticket stage, evidence updates, payout amounts. A won **payout** is read from the Platform's own compensation field on import (TikTok `Compensation Amount`, Shopee `เงินชดเชยให้ผู้ขาย`) rather than hand-typed, where disclosed (ADR 0024).
 
 _Also_: เคลม, เคลมแพลตฟอร์ม
 _Avoid_: Refund (Refunds flow Platform→Buyer; Claims flow Platform→Seller), dispute (broader), case (overloaded)
