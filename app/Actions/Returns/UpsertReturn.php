@@ -2,6 +2,7 @@
 
 namespace App\Actions\Returns;
 
+use App\Actions\Claims\FlagReturnFeeClaim;
 use App\Imports\NormalizedReturn;
 use App\Models\OrderReturn;
 use App\Models\Shop;
@@ -93,6 +94,12 @@ class UpsertReturn
                     $return->lines()->create(['ref_order_line_id' => $orderLineId, 'qty' => $qty]);
                 }
             }
+
+            // Auto-flag a return_fee Claim when the Return is seller-fault
+            // (Issue #80). Idempotent — re-import of the same Return is a
+            // no-op inside FlagReturnFeeClaim. Called inside the transaction
+            // so the Claim and Return are committed or rolled back together.
+            app(FlagReturnFeeClaim::class)->handle($return);
 
             return $return->load('lines');
         });
