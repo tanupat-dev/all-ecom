@@ -35,11 +35,17 @@ class Product extends Model
     protected $fillable = ['name', 'english_name', 'description', 'brand'];
 
     /**
+     * Variants in creation order (the order the seller entered them). The
+     * explicit order is the contract — a HasMany without it returns rows in
+     * Postgres' unspecified heap order, which drifts after deletes/rollbacks
+     * and makes ordered reads (Filament display, channel export, tests)
+     * non-deterministic. Mirrors images()->orderBy('sort_order').
+     *
      * @return HasMany<Variant, $this>
      */
     public function variants(): HasMany
     {
-        return $this->hasMany(Variant::class);
+        return $this->hasMany(Variant::class)->orderBy('id');
     }
 
     /**

@@ -44,10 +44,15 @@ class Listing extends Model
     }
 
     /**
+     * Listing Variants in creation order (mirrors the Product's Variant
+     * order). The explicit order is the contract — see Product::variants():
+     * an unordered HasMany returns Postgres' unspecified heap order, which
+     * drifts and makes the Filament table, channel export, and tests flaky.
+     *
      * @return HasMany<ListingVariant, $this>
      */
     public function variants(): HasMany
     {
-        return $this->hasMany(ListingVariant::class);
+        return $this->hasMany(ListingVariant::class)->orderBy('id');
     }
 }
