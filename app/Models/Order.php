@@ -45,12 +45,14 @@ use Illuminate\Support\Carbon;
  * @property Money|null $expected_net
  * @property ReconciliationStatus|null $reconciliation_status
  * @property Carbon|null $settlement_date
+ * @property Carbon|null $expected_payout_date
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
  * @property Carbon|null $shipped_date
  * @property Carbon|null $delivered_date
  * @property Carbon|null $completed_date
  * @property Carbon|null $cancelled_date
+ * @property-read Shop $shop
  */
 class Order extends Model
 {
@@ -73,6 +75,7 @@ class Order extends Model
         'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
         'cancelled_by', 'cancel_reason_category', 'cancel_reason_source', 'return_sub_status',
         'actual_net', 'expected_net', 'reconciliation_status', 'settlement_date',
+        'expected_payout_date',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -90,6 +93,7 @@ class Order extends Model
             'expected_net' => MoneyCast::class,
             'reconciliation_status' => ReconciliationStatus::class,
             'settlement_date' => 'datetime',
+            'expected_payout_date' => 'datetime',
             'created_date' => 'datetime',
             'paid_date' => 'datetime',
             'shipped_date' => 'datetime',
