@@ -8,6 +8,7 @@ use App\Models\Concerns\TracksCreatedBy;
 use App\Tenancy\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A request the seller files with a Platform to recover money it (or its
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * scaffolds the work — it does not file the Claim. Always attaches to one
  * Order (ref_order_id, never null); a `return_fee` Claim additionally
  * attaches to the Return that triggered it (ref_return_id). No money lives
- * here — payout amounts are recorded on the Claim Timeline (later slice).
+ * here — payout amounts are recorded on the Claim Timeline (Issue #83).
  *
  * @property int $id
  * @property int|null $tenant_id
@@ -55,5 +56,24 @@ class Claim extends Model
     public function orderReturn(): BelongsTo
     {
         return $this->belongsTo(OrderReturn::class, 'ref_return_id');
+    }
+
+    /**
+     * @return HasMany<ClaimEvidenceItem, $this>
+     */
+    public function evidenceItems(): HasMany
+    {
+        return $this->hasMany(ClaimEvidenceItem::class);
+    }
+
+    /**
+     * The append-only Claim Timeline (Issue #83): manual log entries, never
+     * updated or deleted — corrections are new entries.
+     *
+     * @return HasMany<ClaimTimelineEntry, $this>
+     */
+    public function timelineEntries(): HasMany
+    {
+        return $this->hasMany(ClaimTimelineEntry::class);
     }
 }

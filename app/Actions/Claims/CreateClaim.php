@@ -27,11 +27,15 @@ class CreateClaim
             throw new InvalidArgumentException('A shipping_overcharge Claim attaches to the Order alone — it carries no ref_return_id.');
         }
 
-        return Claim::query()->create([
+        $claim = Claim::query()->create([
             'claim_type' => $type,
             'status' => ClaimStatus::Eligible,
             'ref_order_id' => $order->id,
             'ref_return_id' => $return?->id,
         ]);
+
+        app(SeedDefaultEvidence::class)->handle($claim);
+
+        return $claim;
     }
 }

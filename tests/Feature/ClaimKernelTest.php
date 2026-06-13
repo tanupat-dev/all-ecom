@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Claims\CreateClaim;
+use App\Actions\Claims\TransitionClaimStatus;
 use App\Actions\Shops\CreateShop;
 use App\Actions\Tenants\CreateTenant;
 use App\Enums\ClaimStatus;
@@ -216,4 +217,179 @@ it('passes the cross-tenant isolation harness', function () {
 
         return app(CreateClaim::class)->handle($order, ClaimType::ShippingOvercharge);
     });
+});
+
+// ─── TransitionClaimStatus: legal transitions ─────────────────────────────────
+
+it('transitions Eligible → SubmittedInitial', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+
+    expect($result->status)->toBe(ClaimStatus::SubmittedInitial)
+        ->and(Claim::query()->find($result->id)?->status)->toBe(ClaimStatus::SubmittedInitial);
+});
+
+it('transitions Eligible → Abandoned', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Abandoned);
+
+    expect($result->status)->toBe(ClaimStatus::Abandoned);
+});
+
+it('transitions SubmittedInitial → Approved', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Approved);
+
+    expect($result->status)->toBe(ClaimStatus::Approved);
+});
+
+it('transitions SubmittedInitial → Rejected', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Rejected);
+
+    expect($result->status)->toBe(ClaimStatus::Rejected);
+});
+
+it('transitions SubmittedInitial → SubmittedTicket (escalation)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedTicket);
+
+    expect($result->status)->toBe(ClaimStatus::SubmittedTicket);
+});
+
+it('transitions SubmittedInitial → Abandoned', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Abandoned);
+
+    expect($result->status)->toBe(ClaimStatus::Abandoned);
+});
+
+it('transitions SubmittedTicket → Approved', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedTicket);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Approved);
+
+    expect($result->status)->toBe(ClaimStatus::Approved);
+});
+
+it('transitions SubmittedTicket → Rejected', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedTicket);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Rejected);
+
+    expect($result->status)->toBe(ClaimStatus::Rejected);
+});
+
+it('transitions SubmittedTicket → Abandoned', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedTicket);
+
+    $result = app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Abandoned);
+
+    expect($result->status)->toBe(ClaimStatus::Abandoned);
+});
+
+// ─── TransitionClaimStatus: illegal transitions ───────────────────────────────
+
+it('rejects Approved → SubmittedInitial (terminal state, no exit)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Approved);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects Rejected → Eligible (terminal state, no exit)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Rejected);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Eligible))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects Abandoned → SubmittedInitial (terminal state, no exit)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Abandoned);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects Eligible → Approved (skips submission stage)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Approved))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects SubmittedTicket → SubmittedInitial (backward transition)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial);
+    app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedTicket);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::SubmittedInitial))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects Eligible → Rejected (skips submission stage)', function () {
+    $claim = app(CreateClaim::class)->handle(claimOrder(), ClaimType::ShippingOvercharge);
+
+    expect(fn () => app(TransitionClaimStatus::class)->handle($claim, ClaimStatus::Rejected))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+// ─── ClaimPolicy gate: claim.manage required for status transitions ────────────
+
+it('ClaimPolicy denies update (transition) for a role without claim.manage', function () {
+    $tenant = app(TenantContext::class)->current();
+    assert($tenant !== null);
+
+    $readOnlyRole = Role::findOrCreate('ClaimReadOnly-'.uniqid(), 'web');
+    $readOnlyRole->syncPermissions(['claim.view']);
+
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole($readOnlyRole);
+
+    $order = claimOrder();
+    $claim = app(CreateClaim::class)->handle($order, ClaimType::ShippingOvercharge);
+
+    expect($user->can('update', $claim))->toBeFalse();
+});
+
+// ─── TransitionClaimStatus: cross-tenant isolation ────────────────────────────
+
+it('a Claim from tenant A cannot be transitioned when tenant B context is active', function () {
+    $context = app(TenantContext::class);
+
+    $tenantA = app(CreateTenant::class)->handle('TransitionTenantA-'.uniqid());
+    $tenantB = app(CreateTenant::class)->handle('TransitionTenantB-'.uniqid());
+
+    // Create a Claim in tenant A.
+    $context->set($tenantA);
+    $orderA = claimOrder();
+    $claimA = app(CreateClaim::class)->handle($orderA, ClaimType::ShippingOvercharge);
+
+    // Switch to tenant B — the Claim from A is invisible via Eloquent.
+    $context->set($tenantB);
+    expect(Claim::query()->find($claimA->id))->toBeNull();
+
+    // Restore tenant A context.
+    $context->set($tenantA);
 });
