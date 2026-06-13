@@ -28,6 +28,9 @@ class VariantsRelationManager extends RelationManager
                 TextColumn::make('variant.master_sku')->label('Master SKU'),
                 TextColumn::make('variant.name')->label('ตัวเลือก'),
                 TextColumn::make('platform_sku')->label('Platform SKU')->searchable(),
+                // Read-only display of the Deal Price cache (ADR 0021): the
+                // active Promotion Line's Deal Price, set by the Promotion
+                // machinery (RefreshDealPriceCache) — never edited here.
                 TextColumn::make('deal_price')
                     ->label('Deal Price (฿)')
                     ->formatStateUsing(fn (Money|string|null $state): ?string => $state instanceof Money ? $state->toBaht() : $state),
@@ -57,16 +60,15 @@ class VariantsRelationManager extends RelationManager
                     ->action(function (ListingVariant $record): void {
                         app(ConfirmListingUpload::class)->handle($record);
                     }),
+                // Only the Platform SKU mapping is editable here. Deal Price is
+                // not — it is the cache of the active Promotion Line (ADR 0021),
+                // managed through the Promotion screens, not this row.
                 EditAction::make()
                     ->schema([
                         TextInput::make('platform_sku')
                             ->label('Platform SKU')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('deal_price')
-                            ->label('Deal Price (฿)')
-                            ->numeric()
-                            ->formatStateUsing(fn (Money|string|null $state): ?string => $state instanceof Money ? $state->toBaht() : $state),
                     ])
                     // The override goes through the Action so the
                     // (Shop, Platform SKU) → Variant function stays intact.
@@ -77,13 +79,7 @@ class VariantsRelationManager extends RelationManager
                             throw new InvalidArgumentException('A mapping needs a Platform SKU.');
                         }
 
-                        $dealPrice = $data['deal_price'] ?? null;
-
-                        return app(UpdateListingVariant::class)->handle(
-                            $record,
-                            $platformSku,
-                            is_string($dealPrice) && $dealPrice !== '' ? Money::fromBaht($dealPrice) : null,
-                        );
+                        return app(UpdateListingVariant::class)->handle($record, $platformSku);
                     }),
             ]);
     }

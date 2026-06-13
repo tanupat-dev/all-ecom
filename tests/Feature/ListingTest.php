@@ -77,7 +77,7 @@ it('re-maps a Platform SKU override and resolves through it — many SKUs to one
     $listing = app(CreateListing::class)->handle($shop, listedProduct());
     $mapping = $listing->variants()->where('platform_sku', 'TS-RED-M')->firstOrFail();
 
-    app(UpdateListingVariant::class)->handle($mapping, 'OLD-SHOPEE-CODE-1', null);
+    app(UpdateListingVariant::class)->handle($mapping, 'OLD-SHOPEE-CODE-1');
 
     expect(app(ResolvePlatformSku::class)->handle($shop, 'OLD-SHOPEE-CODE-1')->master_sku)->toBe('TS-RED-M');
 });
@@ -101,7 +101,7 @@ it('fails loud when a (Shop, Platform SKU) would point at two different Variants
 
     // TS-RED-L already maps to the L Variant on this Shop; pointing the M
     // Variant's row at the same SKU breaks the resolution function.
-    app(UpdateListingVariant::class)->handle($mapping, 'TS-RED-L', null);
+    app(UpdateListingVariant::class)->handle($mapping, 'TS-RED-L');
 })->throws(PlatformSkuConflictException::class, 'TS-RED-L');
 
 it('scopes the resolution map per Shop — the same SKU may point at different Variants on different Shops', function () {
@@ -115,22 +115,12 @@ it('scopes the resolution map per Shop — the same SKU may point at different V
     $onShopee = app(CreateListing::class)->handle($shopee, $product);
     $onLazada = app(CreateListing::class)->handle($lazada, $other);
     app(UpdateListingVariant::class)->handle(
-        $onShopee->variants()->where('platform_sku', 'TS-RED-M')->firstOrFail(), 'A-1', null);
+        $onShopee->variants()->where('platform_sku', 'TS-RED-M')->firstOrFail(), 'A-1');
     app(UpdateListingVariant::class)->handle(
-        $onLazada->variants()->firstOrFail(), 'A-1', null);
+        $onLazada->variants()->firstOrFail(), 'A-1');
 
     expect(app(ResolvePlatformSku::class)->handle($shopee, 'A-1')->master_sku)->toBe('TS-RED-M')
         ->and(app(ResolvePlatformSku::class)->handle($lazada, 'A-1')->master_sku)->toBe('CUP-1');
-});
-
-it('stores the Deal Price as integer satang', function () {
-    $shop = marketplaceShop();
-    $listing = app(CreateListing::class)->handle($shop, listedProduct());
-    $mapping = $listing->variants()->firstOrFail();
-
-    app(UpdateListingVariant::class)->handle($mapping, $mapping->platform_sku, Money::fromBaht('159.50'));
-
-    expect($mapping->refresh()->deal_price?->satang)->toBe(15950);
 });
 
 it('fails loud when a new Listing\'s default SKU collides with a mapping that points elsewhere', function () {
@@ -143,7 +133,7 @@ it('fails loud when a new Listing\'s default SKU collides with a mapping that po
     // The seller maps the cup's pre-existing platform code — which happens
     // to be the shirt M Variant's Master SKU — before listing the shirt.
     $cupListing = app(CreateListing::class)->handle($shop, $cup);
-    app(UpdateListingVariant::class)->handle($cupListing->variants()->firstOrFail(), 'TS-RED-M', null);
+    app(UpdateListingVariant::class)->handle($cupListing->variants()->firstOrFail(), 'TS-RED-M');
 
     app(CreateListing::class)->handle($shop, $shirt);
 })->throws(PlatformSkuConflictException::class, 'TS-RED-M');
