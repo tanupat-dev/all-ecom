@@ -23,6 +23,8 @@ class PermissionCatalogue
         'shop.edit',
         'listing.view',
         'listing.manage',
+        'promotion.view',
+        'promotion.manage',
         'order.view',
         'order.import',
         'return.view',
