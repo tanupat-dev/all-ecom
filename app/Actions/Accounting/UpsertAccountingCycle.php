@@ -2,6 +2,7 @@
 
 namespace App\Actions\Accounting;
 
+use App\Actions\Claims\FlagShippingOverchargeClaim;
 use App\Enums\AccountingLineCategory;
 use App\Enums\PlatformType;
 use App\Models\AccountingEntryLine;
@@ -25,6 +26,7 @@ class UpsertAccountingCycle
 {
     public function __construct(
         private readonly ComputeReconciliationStatus $computeReconciliationStatus,
+        private readonly FlagShippingOverchargeClaim $flagShippingOverchargeClaim,
     ) {}
 
     /**
@@ -67,6 +69,13 @@ class UpsertAccountingCycle
             // Actual Net moved — a late cycle's deduction can flip a previously
             // paid_ok Order to paid_mismatch (ADR 0007), the desired behaviour.
             $this->computeReconciliationStatus->handle($order);
+
+            // Auto-flag a shipping_overcharge Claim when the courier billed the
+            // seller above the catalogue-expected rate (Issue #85, ADR 0022).
+            // Idempotent inside the flag action — re-importing a cycle never
+            // creates a second Claim. In the SAME transaction so the Claim and
+            // accounting commit or roll back together (mirrors UpsertReturn #80).
+            $this->flagShippingOverchargeClaim->handle($order);
         });
     }
 }
