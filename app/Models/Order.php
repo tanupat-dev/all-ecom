@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property CancelReasonCategory|null $cancel_reason_category
  * @property string|null $cancel_reason_source
  * @property ReturnSubStatus|null $return_sub_status
+ * @property Money|null $actual_net
  * @property Carbon|null $created_date
  * @property Carbon|null $paid_date
  * @property Carbon|null $shipped_date
@@ -67,6 +68,7 @@ class Order extends Model
         'tracking_number', 'buyer_name', 'buyer_phone',
         'shift_id', 'receipt_no', 'cart_discount', 'ref_order_id',
         'cancelled_by', 'cancel_reason_category', 'cancel_reason_source', 'return_sub_status',
+        'actual_net',
         'created_date', 'paid_date', 'shipped_date', 'delivered_date', 'completed_date', 'cancelled_date',
     ];
 
@@ -80,6 +82,7 @@ class Order extends Model
             'return_sub_status' => ReturnSubStatus::class,
             'total' => MoneyCast::class,
             'cart_discount' => MoneyCast::class,
+            'actual_net' => MoneyCast::class,
             'created_date' => 'datetime',
             'paid_date' => 'datetime',
             'shipped_date' => 'datetime',
@@ -119,6 +122,14 @@ class Order extends Model
     public function returns(): HasMany
     {
         return $this->hasMany(OrderReturn::class, 'ref_order_id');
+    }
+
+    /**
+     * @return HasMany<AccountingEntryLine, $this>
+     */
+    public function accountingEntryLines(): HasMany
+    {
+        return $this->hasMany(AccountingEntryLine::class);
     }
 
     /**
