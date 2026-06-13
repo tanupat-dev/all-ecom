@@ -49,6 +49,17 @@ class TransitionClaimStatus
     ];
 
     /**
+     * The legal next states from `$from` (Issue #81 graph), for the UI to offer
+     * only valid transitions (Issue #84). Empty for terminal states.
+     *
+     * @return list<ClaimStatus>
+     */
+    public function nextStates(ClaimStatus $from): array
+    {
+        return self::LEGAL[$from->value];
+    }
+
+    /**
      * Transition the Claim to `$to`, persisting the new status.
      *
      * @throws InvalidArgumentException when the transition is not legal
